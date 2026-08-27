@@ -1,0 +1,27 @@
+# Build output
+bin/
+obj/
+
+# IDEs and editors
+.vs/
+.idea/
+.vscode/
+*.user
+*.suo
+*.userprefs
+*.cache
+
+# Logs and local tooling state
+*.log
+*.tmp
+*.pidb
+
+# Local game/dependency files
+BepInEx/
+GameLibraries/
+Game/
+Libraries/
+
+# OS files
+.DS_Store
+Thumbs.db
