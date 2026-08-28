@@ -1,8 +1,11 @@
-# HaishanTweaks v0.8.1
+# HaishanTweaks v0.9.1
 
 ## Highlights
 
 - Adds subtle bounds-based vertical compensation for enlarged sword, slash, and other attached/forward visual effects.
+- Adds player-only Projectile Count from 1x to 10x per native projectile emission.
+- Adds optional non-blocking multishot stagger, defaulting to 25 ms.
+- Removes routine camera and blur informational log spam.
 - Preserves ability anchors, cursor targets, projectile trajectories, and gameplay collider centers.
 - Includes persistent ability compensation configuration, defaulting to 25% with a 1-unit cap.
 
@@ -13,6 +16,8 @@ Install BepInEx 5.x separately, start the game once, then place the release arti
 ## Controls
 
 `F10` opens or closes the HaishanTweaks menu. Configuration persists in `BepInEx\config\com.jerry.haishantweaks.cfg`.
+
+Projectile Count is configurable from 1x to 10x. Multishot Delay is configurable from 0 to 100 ms in 5 ms increments; the default is 25 ms.
 
 ## Known limitations
 

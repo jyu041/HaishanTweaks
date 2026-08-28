@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.9.1
+
+- Added optional non-blocking staggered spawning for additional player projectiles.
+- Added a persistent `MultishotDelaySeconds` setting from 0 to 100 ms.
+- Removed routine camera, fog, and Depth of Field informational log spam.
+
+## 0.9.0
+
+- Added conservative player-only projectile count/multishot for supported moving projectiles.
+- Added small symmetric horizontal spread while preserving native projectile creation and skill costs.
+- Added multishot diagnostics through `AbilityScalingDiagnostics`.
+
 ## 0.8.1
 
 - Added conservative, bounds-based vertical compensation for enlarged attached and forward ability visuals.

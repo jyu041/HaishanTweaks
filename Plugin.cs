@@ -15,7 +15,7 @@ namespace HaishanTweaks
     {
         public const string PluginGuid = "com.jerry.haishantweaks";
         public const string PluginName = "HaishanTweaks";
-        public const string PluginVersion = "0.8.1";
+        public const string PluginVersion = "0.9.1";
 
         internal static ConfigEntry<bool> InfiniteHealth;
         internal static ConfigEntry<bool> InfiniteMP;
@@ -28,6 +28,8 @@ namespace HaishanTweaks
         internal static ConfigEntry<bool> ScaleAbilityGameplayAreas;
         internal static ConfigEntry<bool> AbilityScalingDiagnostics;
         internal static ConfigEntry<float> AbilityVerticalCompensation;
+        internal static ConfigEntry<int> ProjectileCountMultiplier;
+        internal static ConfigEntry<float> MultishotDelaySeconds;
         internal static ConfigEntry<float> CameraDistanceMultiplier;
         internal static ConfigEntry<bool> ReduceFogWhenZoomedOut;
         internal static ConfigEntry<bool> ReduceBlurWhenZoomedOut;
@@ -79,6 +81,10 @@ namespace HaishanTweaks
             AbilityScalingDiagnostics = Config.Bind("Combat", "AbilityScalingDiagnostics", false, "Log one anchor and dimension record per player ability activation.");
             AbilityVerticalCompensation = Config.Bind("Combat", "AbilityVerticalCompensation", 0.25f, "Fraction of downward visual growth lifted to reduce floor clipping (0-0.5).");
             AbilityVerticalCompensation.Value = Mathf.Clamp(AbilityVerticalCompensation.Value, 0f, 0.5f);
+            ProjectileCountMultiplier = Config.Bind("Combat", "ProjectileCountMultiplier", 1, "Additional player projectile count multiplier (1-10). Applies per native projectile emission.");
+            ProjectileCountMultiplier.Value = Mathf.Clamp(ProjectileCountMultiplier.Value, 1, 10);
+            MultishotDelaySeconds = Config.Bind("Combat", "MultishotDelaySeconds", 0.025f, "Delay between additional player projectiles in seconds (0-0.1).");
+            MultishotDelaySeconds.Value = Mathf.Clamp(MultishotDelaySeconds.Value, 0f, 0.1f);
             CameraDistanceMultiplier = Config.Bind("Camera", "CameraDistanceMultiplier", 1f, "Normal player-follow camera distance multiplier.");
             ReduceFogWhenZoomedOut = Config.Bind("Camera", "ReduceFogWhenZoomedOut", true, "Reduce Unity RenderSettings fog when the camera is zoomed out.");
             ReduceBlurWhenZoomedOut = Config.Bind("Camera", "ReduceBlurWhenZoomedOut", true, "Reduce the camera DepthOfField effect when zoomed out.");
@@ -97,7 +103,7 @@ namespace HaishanTweaks
             RuntimeAbilityRangeMultiplier = AbilityRangeMultiplier.Value;
             RuntimeCameraDistanceMultiplier = CameraDistanceMultiplier.Value;
 
-            Logger.LogInfo("HaishanTweaks 0.8.1 loaded");
+            Logger.LogInfo("HaishanTweaks 0.9.1 loaded");
             Logger.LogInfo("Infinite Health: " + OnOff(InfiniteHealth.Value));
             Logger.LogInfo("Infinite MP: " + OnOff(InfiniteMP.Value));
             Logger.LogInfo("No Skill Cooldowns: " + OnOff(NoSkillCooldowns.Value));
@@ -114,6 +120,7 @@ namespace HaishanTweaks
 
         private void Update()
         {
+            PlayerMultishot.Update();
             if (toggleKey.Value.IsDown())
             {
                 SetMenuVisible(!menuVisible);
@@ -124,7 +131,7 @@ namespace HaishanTweaks
         {
             if (menuVisible)
             {
-                windowRect = GUI.Window(84321, windowRect, DrawWindow, "HaishanTweaks v0.8.1");
+                windowRect = GUI.Window(84321, windowRect, DrawWindow, "HaishanTweaks v0.9.1");
                 if (sliderDirty && Event.current.type == EventType.MouseUp)
                 {
                     CommitSliders();
@@ -197,17 +204,56 @@ namespace HaishanTweaks
             DrawAbilitySlider(true);
             GUILayout.Label("Ability Range Multiplier");
             DrawAbilitySlider(false);
+            GUILayout.Label("Projectile Count");
+            DrawProjectileCount();
+            DrawMultishotDelay();
             if (GUILayout.Button("Reset Ability Scaling"))
             {
                 RuntimeAbilitySizeMultiplier = 1f;
                 RuntimeAbilityRangeMultiplier = 1f;
+                ProjectileCountMultiplier.Value = 1;
+                MultishotDelaySeconds.Value = 0.025f;
                 sliderDirty = true;
+                Config.Save();
             }
             DrawToggle("Scale Ability Visuals", ScaleAbilityVisuals);
             DrawToggle("Scale Ability Gameplay Areas", ScaleAbilityGameplayAreas);
             GUILayout.Label("Standard SkillBox / projectile effects are supported. Some custom passive/artifact effects may use independent range logic.");
             if (RuntimeAbilitySizeMultiplier > 5f || RuntimeAbilityRangeMultiplier > 5f)
                 GUILayout.Label("Extreme scaling may affect performance and cover very large areas.");
+        }
+
+        private void DrawProjectileCount()
+        {
+            int value = Mathf.Clamp(ProjectileCountMultiplier.Value, 1, 10);
+            int next = Mathf.Clamp(Mathf.RoundToInt(GUILayout.HorizontalSlider(value, 1f, 10f)), 1, 10);
+            if (next != value)
+            {
+                ProjectileCountMultiplier.Value = next;
+                Config.Save();
+                Logger.LogInfo("Projectile Count: " + next + "x");
+            }
+            GUILayout.BeginHorizontal();
+            GUILayout.Label("Current: " + value + "x");
+            if (GUILayout.Button("Reset", GUILayout.Width(70f)))
+            {
+                ProjectileCountMultiplier.Value = 1;
+                Config.Save();
+            }
+            GUILayout.EndHorizontal();
+        }
+
+        private void DrawMultishotDelay()
+        {
+            float value = Mathf.Clamp(MultishotDelaySeconds.Value, 0f, 0.1f);
+            float next = Mathf.Clamp(GUILayout.HorizontalSlider(value, 0f, 0.1f), 0f, 0.1f);
+            next = Mathf.Round(next * 200f) / 200f;
+            if (!Mathf.Approximately(next, value))
+            {
+                MultishotDelaySeconds.Value = next;
+                Config.Save();
+            }
+            GUILayout.Label("Multishot Delay: " + Mathf.RoundToInt(value * 1000f) + " ms");
         }
 
         private void DrawSlider(bool movement)
@@ -1412,7 +1458,6 @@ namespace HaishanTweaks
         {
             FogController.Update();
             BlurController.Update(__instance);
-            CameraDistanceDiagnostics.ReportMode(__instance);
         }
     }
 
@@ -1530,56 +1575,6 @@ namespace HaishanTweaks
             float targetDistance = baselineDistance * Plugin.RuntimeCameraDistanceMultiplier;
             Vector3 desired = point.transform.position + nativeVector / nativeDistance * targetDistance;
             camera.m_Camera.transform.position = desired;
-            CameraDistanceDiagnostics.Report(camera, point.transform.position, nativeDistance, targetDistance);
-        }
-    }
-
-    internal static class CameraDistanceDiagnostics
-    {
-        private static readonly System.Reflection.FieldInfo FollowField = AccessTools.Field(typeof(CameraManager), "m_Followplayer");
-        private static readonly System.Reflection.FieldInfo NpcField = AccessTools.Field(typeof(CameraManager), "m_Npcplayer");
-        private static readonly System.Reflection.FieldInfo PointField = AccessTools.Field(typeof(CameraManager), "m_GameObject");
-        private static float lastReportedMultiplier = float.NaN;
-        private static float lastReportTime = -1f;
-        private static string lastMode;
-
-        internal static void ReportMode(CameraManager camera)
-        {
-            bool follow = FollowField != null && camera != null && (bool)FollowField.GetValue(camera);
-            Npc npc = NpcField == null || camera == null ? null : NpcField.GetValue(camera) as Npc;
-            GameObject point = PointField == null || camera == null ? null : PointField.GetValue(camera) as GameObject;
-            GameWatch watch = GameWatch.Instance;
-            CameraLockKind lockKind = CameraLockTracker.GetKind(camera);
-            string mode = (camera == null ? "null" : camera.Lock.ToString()) + "|" + lockKind + "|" + follow + "|" + (npc == null ? "null" : npc.m_ID.ToString()) + "|" + (point == null ? "null" : point.GetInstanceID().ToString()) + "|" + (watch == null ? "null" : watch.radius.ToString("F3") + "|" + watch.sinx.ToString("F3") + "|" + watch.offset.ToString());
-            if (mode == lastMode) return;
-            lastMode = mode;
-            bool applied = CameraDistanceScope.IsNormalFollow(camera);
-            float targetDistance = CameraConsistency.GetTargetDistance();
-            float actualDistance = CameraConsistency.GetActualDistance(camera, point);
-            Plugin.LogInfo("Camera mode changed: Lock=" + (camera != null && camera.Lock) + ", LockKind=" + lockKind + ", FollowPlayer=" + follow + ", NpcPlayer=" + (npc == null ? "null" : npc.m_ID.ToString()) + ", CameraPoint=" + GetPath(point == null ? null : point.transform) + ", Radius=" + (watch == null ? "n/a" : watch.radius.ToString("F2")) + ", SinX=" + (watch == null ? "n/a" : watch.sinx.ToString("F2")) + ", Offset=" + (watch == null ? "n/a" : watch.offset.ToString()) + ", Scaling=" + (applied ? "Applied" : "Suppressed") + ", BaselineDistance=" + (CameraConsistency.BaselineDistance > 0f ? CameraConsistency.BaselineDistance.ToString("F2") : "n/a") + ", TargetDistance=" + (targetDistance > 0f ? targetDistance.ToString("F2") : "n/a") + ", ActualDistance=" + (actualDistance > 0f ? actualDistance.ToString("F2") : "n/a") + ", CameraManager=" + GetPath(camera == null || camera.m_Camera == null ? null : camera.m_Camera.transform));
-        }
-
-        internal static void Report(CameraManager camera, Vector3 target, float nativeDistance, float targetDistance)
-        {
-            float multiplier = Plugin.RuntimeCameraDistanceMultiplier;
-            if (multiplier == lastReportedMultiplier && Time.realtimeSinceStartup - lastReportTime < 1f) return;
-            float finalDistance = camera.m_Camera == null ? 0f : Vector3.Distance(target, camera.m_Camera.transform.position);
-            Plugin.LogInfo("Camera consistency: BaselineDistance=" + (targetDistance / multiplier).ToString("F2") + ", NativeDistance=" + nativeDistance.ToString("F2") + ", TargetDistance=" + targetDistance.ToString("F2") + ", FinalAppliedDistance=" + finalDistance.ToString("F2") + ", Multiplier=" + multiplier.ToString("F2") + ", Lock=" + camera.Lock + ", CameraPoint=" + target + ", ScalingApplied=true");
-            lastReportedMultiplier = multiplier;
-            lastReportTime = Time.realtimeSinceStartup;
-        }
-
-        private static string GetPath(Transform current)
-        {
-            if (current == null) return "null";
-            List<string> names = new List<string>();
-            while (current != null)
-            {
-                names.Add(current.name);
-                current = current.parent;
-            }
-            names.Reverse();
-            return string.Join("/", names.ToArray());
         }
     }
 
@@ -1601,8 +1596,6 @@ namespace HaishanTweaks
 
         private static BlurState state;
         private static int sceneHandle = int.MinValue;
-        private static int discoveryScene = int.MinValue;
-        private static float lastLoggedMultiplier = float.NaN;
 
         internal static void Update(CameraManager camera)
         {
@@ -1612,8 +1605,6 @@ namespace HaishanTweaks
             {
                 RestoreNative();
                 sceneHandle = currentScene;
-                discoveryScene = int.MinValue;
-                lastLoggedMultiplier = float.NaN;
             }
             if (!CameraDistanceScope.IsNormalFollow(camera) || !Plugin.ReduceBlurWhenZoomedOut.Value || Plugin.RuntimeCameraDistanceMultiplier <= 1f)
             {
@@ -1661,7 +1652,6 @@ namespace HaishanTweaks
             state.LastEnabled = appliedEnabled;
             state.Applied = true;
             state.AppliedMultiplier = Plugin.RuntimeCameraDistanceMultiplier;
-            LogState(camera, state);
         }
 
         internal static void RestoreNative()
@@ -1677,17 +1667,6 @@ namespace HaishanTweaks
         private static object FindDepthOfField(Camera camera, int currentScene)
         {
             Component[] components = camera.GetComponents<Component>();
-            if (discoveryScene != currentScene)
-            {
-                discoveryScene = currentScene;
-                foreach (Component component in components)
-                {
-                    if (component == null) continue;
-                    string name = component.GetType().Name;
-                    if (name.IndexOf("Blur", StringComparison.OrdinalIgnoreCase) >= 0 || name.IndexOf("DepthOfField", StringComparison.OrdinalIgnoreCase) >= 0 || name.IndexOf("PostProcess", StringComparison.OrdinalIgnoreCase) >= 0)
-                        Plugin.LogInfo("Blur candidate: Component=" + GetPath(component.transform) + ", Type=" + name);
-                }
-            }
             foreach (Component component in components)
             {
                 if (component == null) continue;
@@ -1719,13 +1698,6 @@ namespace HaishanTweaks
             float nativeAperture = 0f;
             bool hasAperture = aperture != null && TryGetFloat(aperture, out nativeAperture);
             return new BlurState { Effect = effect, EnabledParameter = enabled, ApertureParameter = aperture, NativeEnabled = nativeEnabled, NativeAperture = hasAperture ? nativeAperture : 0f, HasAperture = hasAperture };
-        }
-
-        private static void LogState(CameraManager camera, BlurState blur)
-        {
-            if (!blur.Applied || Mathf.Approximately(lastLoggedMultiplier, Plugin.RuntimeCameraDistanceMultiplier)) return;
-            Plugin.LogInfo("Blur control: Type=DepthOfField, Scene=" + SceneManager.GetActiveScene().name + ", Component=" + (camera.m_Camera == null ? "null" : GetPath(camera.m_Camera.transform)) + ", NativeEnabled=" + blur.NativeEnabled + ", AppliedEnabled=" + blur.LastEnabled + ", NativeAperture=" + (blur.HasAperture ? blur.NativeAperture.ToString("F2") : "n/a") + ", AppliedAperture=" + (blur.HasAperture ? blur.LastAperture.ToString("F2") : "n/a") + ", Multiplier=" + Plugin.RuntimeCameraDistanceMultiplier.ToString("F2") + ", SuppressedForCinematic=" + !CameraDistanceScope.IsNormalFollow(camera));
-            lastLoggedMultiplier = Plugin.RuntimeCameraDistanceMultiplier;
         }
 
         private static object GetMember(object target, string name)
@@ -2273,6 +2245,154 @@ namespace HaishanTweaks
         internal SkillBullet Bullet;
         internal float Min;
         internal float Max;
+    }
+
+    internal static class PlayerMultishot
+    {
+        private sealed class PendingProjectile
+        {
+            internal Thing Owner;
+            internal Skill Skill;
+            internal SkillBullet Bullet;
+            internal int Level;
+            internal List<SkillAudio> Audios;
+            internal Skill ZhenFaSkill;
+            internal Vector3 Start;
+            internal Vector3 End;
+            internal Vector3 Rotation;
+            internal float MoveTime;
+            internal float AcceleratedSpeed;
+            internal float FireAt;
+            internal int SceneHandle;
+        }
+
+        private static readonly List<PendingProjectile> Pending = new List<PendingProjectile>();
+        private static int pendingSceneHandle = int.MinValue;
+
+        [ThreadStatic]
+        private static int spawnDepth;
+
+        internal static void Update()
+        {
+            int sceneHandle = SceneManager.GetActiveScene().handle;
+            if (pendingSceneHandle != sceneHandle)
+            {
+                Pending.Clear();
+                pendingSceneHandle = sceneHandle;
+                return;
+            }
+            float now = Time.time;
+            for (int i = Pending.Count - 1; i >= 0; i--)
+            {
+                PendingProjectile pending = Pending[i];
+                if (pending == null || pending.SceneHandle != sceneHandle || pending.Owner == null || BulletManager.Instance == null || GameWatch.Instance == null)
+                {
+                    Pending.RemoveAt(i);
+                    continue;
+                }
+                if (now < pending.FireAt) continue;
+                Pending.RemoveAt(i);
+                spawnDepth++;
+                try
+                {
+                    AttackHelperManager.Instance.TriggerSkillBullet(pending.Owner.m_ID, pending.Skill, pending.Bullet, pending.Bullet.Mirror == 0 ? pending.Start : pending.End, pending.Bullet.Mirror == 0 ? pending.End : pending.Start, pending.Rotation, pending.MoveTime, pending.Level, pending.AcceleratedSpeed, pending.Audios, pending.ZhenFaSkill);
+                }
+                finally
+                {
+                    spawnDepth--;
+                }
+            }
+        }
+
+        internal static void Duplicate(Skill skill, SkillBullet bullet, int level, List<SkillAudio> audios, Skill zhenfaSkill, BulletEffect native)
+        {
+            if (native == null || bullet == null || skill == null || spawnDepth != 0) return;
+            int count = Mathf.Clamp(Plugin.ProjectileCountMultiplier.Value, 1, 10);
+            if (count <= 1)
+            {
+                if (Plugin.AbilityScalingDiagnostics.Value)
+                    Plugin.ModLogger.LogInfo("Multishot: Skill=" + skill.Name + " Owner=Player Projectile=" + bullet.Name + " NativeCount=1 Multiplier=1 AdditionalSpawned=0 Spawn=" + native.m_StartPos + " Target=" + native.m_EndPos + " Direction=" + (native.m_EndPos - native.m_StartPos).normalized + " SpreadSupported=False SpreadAngles=[] Homing=" + (bullet.TrackType != BulletTrackType.None) + " Range=" + Vector3.Distance(native.m_StartPos, native.m_EndPos).ToString("F2") + " SizeMultiplier=" + Plugin.RuntimeAbilitySizeMultiplier.ToString("F2"));
+                return;
+            }
+            if (bullet.TrackType != BulletTrackType.None || native.m_MoveTime <= 0f)
+            {
+                LogSkipped(skill, bullet, bullet.TrackType != BulletTrackType.None ? "HomingOrTracked" : "BeamLikeOrStationary");
+                return;
+            }
+
+            Vector3 actualStart = native.m_StartPos;
+            Vector3 actualEnd = native.m_EndPos;
+            Vector3 travel = actualEnd - actualStart;
+            Vector3 horizontal = new Vector3(travel.x, 0f, travel.z);
+            bool spreadSupported = horizontal.sqrMagnitude > 0.0001f;
+            List<float> angles = new List<float>();
+            for (int i = 0; i < count; i++)
+            {
+                float angle = (i - (count - 1) * 0.5f) * 5f;
+                if (Mathf.Abs(angle) > 0.001f) angles.Add(angle);
+            }
+            if (angles.Count < count - 1) angles.Add(5f);
+            List<float> usedAngles = new List<float>();
+            float delay = Mathf.Clamp(Plugin.MultishotDelaySeconds.Value, 0f, 0.1f);
+            float nativeFireTime = Time.time;
+            if (pendingSceneHandle == int.MinValue) pendingSceneHandle = SceneManager.GetActiveScene().handle;
+            for (int i = 0; i < count - 1; i++)
+            {
+                float angle = spreadSupported ? angles[i] : 0f;
+                Vector3 end = actualEnd;
+                if (spreadSupported) end = actualStart + Quaternion.AngleAxis(angle, Vector3.up) * horizontal + Vector3.up * travel.y;
+                usedAngles.Add(angle);
+                if (delay <= 0f)
+                {
+                    Spawn(native.m_Owner, skill, bullet, level, audios, zhenfaSkill, actualStart, end, native.transform.eulerAngles, native.m_MoveTime, native.m_AcceleratedSpeed);
+                }
+                else
+                {
+                    Pending.Add(new PendingProjectile { Owner = native.m_Owner, Skill = skill, Bullet = bullet, Level = level, Audios = audios, ZhenFaSkill = zhenfaSkill, Start = actualStart, End = end, Rotation = native.transform.eulerAngles, MoveTime = native.m_MoveTime, AcceleratedSpeed = native.m_AcceleratedSpeed, FireAt = nativeFireTime + delay * (i + 1), SceneHandle = SceneManager.GetActiveScene().handle });
+                }
+            }
+            if (Plugin.AbilityScalingDiagnostics.Value)
+                Plugin.ModLogger.LogInfo("Multishot: Skill=" + skill.Name + " Owner=Player Projectile=" + bullet.Name + " NativeCount=1 Multiplier=" + count + " DelayMs=" + Mathf.RoundToInt(delay * 1000f) + " NativeFireTime=" + nativeFireTime.ToString("F3") + " QueuedExtras=" + (count - 1) + " ScheduledOffsetsMs=[" + string.Join(",", Enumerable.Range(1, count - 1).Select(x => Mathf.RoundToInt(delay * x * 1000f).ToString()).ToArray()) + "] Spawn=" + actualStart + " Target=" + actualEnd + " Direction=" + travel.normalized + " SpreadSupported=" + spreadSupported + " SpreadAngles=[" + string.Join(",", usedAngles.Select(x => x.ToString("F1")).ToArray()) + "] Homing=False Range=" + Vector3.Distance(actualStart, actualEnd).ToString("F2") + " SizeMultiplier=" + Plugin.RuntimeAbilitySizeMultiplier.ToString("F2"));
+        }
+
+        private static void Spawn(Thing owner, Skill skill, SkillBullet bullet, int level, List<SkillAudio> audios, Skill zhenfaSkill, Vector3 actualStart, Vector3 actualEnd, Vector3 rotation, float moveTime, float acceleratedSpeed)
+        {
+            spawnDepth++;
+            try
+            {
+                AttackHelperManager.Instance.TriggerSkillBullet(owner.m_ID, skill, bullet, bullet.Mirror == 0 ? actualStart : actualEnd, bullet.Mirror == 0 ? actualEnd : actualStart, rotation, moveTime, level, acceleratedSpeed, audios, zhenfaSkill);
+            }
+            finally
+            {
+                spawnDepth--;
+            }
+        }
+
+        private static void LogSkipped(Skill skill, SkillBullet bullet, string reason)
+        {
+            if (Plugin.AbilityScalingDiagnostics.Value)
+                Plugin.ModLogger.LogInfo("Multishot skipped: Skill=" + skill.Name + " Projectile=" + bullet.Name + " Reason=" + reason);
+        }
+    }
+
+    [HarmonyPatch(typeof(FightBody), nameof(FightBody.SetSkillBullet), new Type[] { typeof(Skill), typeof(SkillBullet), typeof(int), typeof(Vector3), typeof(bool), typeof(List<SkillAudio>), typeof(Skill) })]
+    internal static class PlayerMultishotPatch
+    {
+        private static void Postfix(Skill skill, SkillBullet skillbullet, int level, List<SkillAudio> audios, Skill zhenfaSkill, BulletEffect __result)
+        {
+            if (__result == null || __result.m_Owner == null || !Plugin.IsPlayer(__result.m_Owner)) return;
+            PlayerMultishot.Duplicate(skill, skillbullet, level, audios, zhenfaSkill, __result);
+        }
+    }
+
+    [HarmonyPatch(typeof(FightBody), nameof(FightBody.SetSkillBullet), new Type[] { typeof(Skill), typeof(SkillBullet), typeof(int), typeof(Vector3), typeof(Vector3), typeof(bool), typeof(List<SkillAudio>), typeof(bool), typeof(Skill) })]
+    internal static class PlayerExplicitMultishotPatch
+    {
+        private static void Postfix(Skill skill, SkillBullet skillbullet, int level, List<SkillAudio> audios, Skill zhenfaSkill, BulletEffect __result)
+        {
+            if (__result == null || __result.m_Owner == null || !Plugin.IsPlayer(__result.m_Owner)) return;
+            PlayerMultishot.Duplicate(skill, skillbullet, level, audios, zhenfaSkill, __result);
+        }
     }
 
     [HarmonyPatch(typeof(FightBody), nameof(FightBody.SetSkillBullet), new Type[] { typeof(Skill), typeof(SkillBullet), typeof(int), typeof(Vector3), typeof(bool), typeof(List<SkillAudio>), typeof(Skill) })]

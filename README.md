@@ -15,6 +15,8 @@ HaishanTweaks is an unofficial BepInEx 5 mod for 《海山：昆仑镜》 (Mirro
 ### Ability Effects
 
 - Ability Size Multiplier and Ability Range Multiplier
+- Player Projectile Count from 1x to 10x per native projectile emission
+- Optional Multishot Delay from 0 to 100 ms
 - Anchor-preserving gameplay and visual scaling
 - Collider dimension scaling without moving collider centers
 - Visual vertical compensation for enlarged attached/forward effects
@@ -75,7 +77,7 @@ BepInEx generates the configuration file at:
 
 `BepInEx\config\com.jerry.haishantweaks.cfg`
 
-The plugin GUID is `com.jerry.haishantweaks`. Settings persist through BepInEx configuration. The vertical visual compensation setting defaults to 25% of measured downward growth and is capped at 1 world unit.
+The plugin GUID is `com.jerry.haishantweaks`. Settings persist through BepInEx configuration. The vertical visual compensation setting defaults to 25% of measured downward growth and is capped at 1 world unit. `MultishotDelaySeconds` defaults to 0.025 seconds; setting it to zero restores simultaneous extra-projectile spawning.
 
 ## Compatibility / Warnings
 
