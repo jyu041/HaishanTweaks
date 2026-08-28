@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.11.3
+
+- Fixed active BepInEx plugin metadata to report version 0.11.3.
+- Made character visual baselines immutable for each model-root instance and added measured bounds diagnostics.
+- Added controlled late visual reapplication without scale compounding.
+- Restricted renderer-only zoom hiding to likely untextured blocker meshes and protected textured map geometry.
+
+## 0.11.2
+
+- Fixed Character Size category resolution by sharing the existing hostile rank classifier and explicitly prioritizing the controlled player.
+- Added bounded category retries for enemies whose team/rank is not ready when the model resolves.
+- Added floor-safe zoom occluder filtering with a 2-unit target-end exclusion zone.
+- Added ground-surface classification and current-floor renderer protection for collider and renderer-bounds paths.
+
 ## 0.11.1
 
 - Reworked character visual-root resolution using runtime renderer hierarchy discovery with bounded retries.

@@ -1,4 +1,4 @@
-# HaishanTweaks v0.11.1
+# HaishanTweaks v0.11.3
 
 HaishanTweaks is an unofficial BepInEx 5 mod for 《海山：昆仑镜》 (Mirror of Heaven). It is intended for the game's single-player gameplay.
 
@@ -30,6 +30,7 @@ HaishanTweaks is an unofficial BepInEx 5 mod for 《海山：昆仑镜》 (Mirro
 - Visual-only player, regular enemy, elite, and boss size controls from 0.50x to 3.00x
 - Hide Zoom Occluders fallback for large environment meshes without useful colliders
 - Infinite Health also blocks HP-cost and sacrifice-style skill resource reductions
+- Floor-safe zoom occluder filtering protects walkable ground from fallback hiding
 - Native encounter registration, AI initialization, death handling, and rewards are preserved
 - Bosses, elites, special rooms, plot encounters, summons, companions, and mixed or unknown pools remain native
 - Values above 3x display a performance warning
@@ -102,6 +103,10 @@ Enemy difficulty settings affect hostile `UnitRank.None`, `UnitRank.Elite`, and 
 Character Size changes visual model subtrees only. Gameplay roots, colliders, navigation, attack origins, camera targets, and ability anchors are not changed. Models without a safely separable visual root remain at native size.
 
 Hide Zoom Occluders is enabled by default and activates only above 1.25x camera distance during normal gameplay follow. It tests cached environment `MeshRenderer` world bounds against the camera-to-player segment and temporarily uses `ShadowsOnly`, falling back to disabling the renderer. Infinite Health blocks negative current-HP fill changes as well as ordinary damage while allowing positive healing and native max-HP changes.
+
+The zoom fallback ignores intersections within 2 world units of the target and protects the current floor from both the renderer-bounds and extended collider paths using vertical ground classification and a small downward ground raycast. Roofs and walls above or between the camera and player remain eligible for hiding.
+
+Renderer-only fallback now protects ordinary textured environment materials. It is reserved for untextured, large, thin, light/simple meshes likely to be the zoom-exposed blocker; native `_Dither` handling remains authoritative where available.
 
 ## Compatibility / Warnings
 
