@@ -15,7 +15,7 @@ namespace HaishanTweaks
     {
         public const string PluginGuid = "com.jerry.haishantweaks";
         public const string PluginName = "HaishanTweaks";
-        public const string PluginVersion = "0.12.0";
+        public const string PluginVersion = "0.12.2";
 
         internal static ConfigEntry<bool> InfiniteHealth;
         internal static ConfigEntry<bool> InfiniteMP;
@@ -117,7 +117,7 @@ namespace HaishanTweaks
             RuntimeAbilityRangeMultiplier = AbilityRangeMultiplier.Value;
             RuntimeCameraDistanceMultiplier = CameraDistanceMultiplier.Value;
 
-            Logger.LogInfo("HaishanTweaks 0.12.0 loaded");
+            Logger.LogInfo("HaishanTweaks 0.12.2 loaded");
             Logger.LogInfo("Infinite Health: " + OnOff(InfiniteHealth.Value));
             Logger.LogInfo("Infinite MP: " + OnOff(InfiniteMP.Value));
             Logger.LogInfo("No Skill Cooldowns: " + OnOff(NoSkillCooldowns.Value));
@@ -146,7 +146,7 @@ namespace HaishanTweaks
         {
             if (menuVisible)
             {
-                windowRect = GUI.Window(84321, windowRect, DrawWindow, "HaishanTweaks v0.12.0");
+                windowRect = GUI.Window(84321, windowRect, DrawWindow, "HaishanTweaks v0.12.2");
                 if (sliderDirty && Event.current.type == EventType.MouseUp)
                 {
                     CommitSliders();
@@ -1684,10 +1684,13 @@ namespace HaishanTweaks
 
     internal static class MapVisibilityController
     {
+        private static readonly System.Reflection.FieldInfo PointField = AccessTools.Field(typeof(CameraManager), "m_GameObject");
+
         private sealed class State
         {
             internal Camera Camera;
             internal int SceneHandle;
+            internal float NativeCameraDistance;
             internal bool NativeOcclusion;
             internal float NativeFarClip;
             internal float[] NativeLayerCullDistances;
@@ -1709,24 +1712,130 @@ namespace HaishanTweaks
             if (state == null || state.Camera != camera || state.SceneHandle != scene)
             {
                 RestoreNative();
-                state = new State { Camera = camera, SceneHandle = scene, NativeOcclusion = camera.useOcclusionCulling, NativeFarClip = camera.farClipPlane, NativeLayerCullDistances = camera.layerCullDistances };
+                GameObject point = PointField == null ? null : PointField.GetValue(manager) as GameObject;
+                float nativeDistance = CameraConsistency.BaselineDistance;
+                if (nativeDistance <= 0f && point != null) nativeDistance = Vector3.Distance(camera.transform.position, point.transform.position);
+                state = new State { Camera = camera, SceneHandle = scene, NativeCameraDistance = nativeDistance, NativeOcclusion = camera.useOcclusionCulling, NativeFarClip = camera.farClipPlane, NativeLayerCullDistances = camera.layerCullDistances };
             }
             if (!state.Applied)
             {
+                GameObject point = PointField == null ? null : PointField.GetValue(manager) as GameObject;
+                float currentDistance = point == null ? 0f : Vector3.Distance(camera.transform.position, point.transform.position);
+                float extraCameraRetreat = Mathf.Max(0f, currentDistance - state.NativeCameraDistance);
+                float margin = 10f;
                 camera.useOcclusionCulling = false;
-                camera.farClipPlane = Mathf.Max(state.NativeFarClip, state.NativeFarClip * Plugin.RuntimeCameraDistanceMultiplier);
+                camera.farClipPlane = Mathf.Max(state.NativeFarClip * Plugin.RuntimeCameraDistanceMultiplier, state.NativeFarClip + extraCameraRetreat + margin);
                 float[] distances = state.NativeLayerCullDistances == null ? null : (float[])state.NativeLayerCullDistances.Clone();
                 int adjusted = 0;
                 if (distances != null)
                 {
                     int uiLayer = LayerMask.NameToLayer("UI");
-                    for (int i = 0; i < distances.Length; i++) if (distances[i] > 0f && i != uiLayer) { distances[i] = state.NativeLayerCullDistances[i] * Plugin.RuntimeCameraDistanceMultiplier; adjusted++; }
+                    for (int i = 0; i < distances.Length; i++) if (distances[i] > 0f && i != uiLayer) { distances[i] = Mathf.Max(state.NativeLayerCullDistances[i] * Plugin.RuntimeCameraDistanceMultiplier, state.NativeLayerCullDistances[i] + extraCameraRetreat + margin); adjusted++; }
                     camera.layerCullDistances = distances;
                 }
                 state.Applied = true;
                 if (Plugin.CameraVisibilityDiagnostics.Value)
-                    Plugin.ModLogger.LogInfo("Extended visibility: Scene=" + SceneManager.GetActiveScene().name + " Multiplier=" + Plugin.RuntimeCameraDistanceMultiplier.ToString("F2") + " NativeFarClip=" + state.NativeFarClip.ToString("F2") + " AppliedFarClip=" + camera.farClipPlane.ToString("F2") + " NativeOcclusionCulling=" + state.NativeOcclusion + " AppliedOcclusionCulling=" + camera.useOcclusionCulling + " LayerCullAdjusted=" + adjusted + " LODAdjusted=False");
+                {
+                    Plugin.ModLogger.LogInfo("Extended visibility: Scene=" + SceneManager.GetActiveScene().name + " Multiplier=" + Plugin.RuntimeCameraDistanceMultiplier.ToString("F2") + " NativeCameraDistance=" + state.NativeCameraDistance.ToString("F2") + " CurrentCameraDistance=" + currentDistance.ToString("F2") + " ExtraCameraRetreat=" + extraCameraRetreat.ToString("F2") + " NativeFarClip=" + state.NativeFarClip.ToString("F2") + " AppliedFarClip=" + camera.farClipPlane.ToString("F2") + " NativeOcclusionCulling=" + state.NativeOcclusion + " AppliedOcclusionCulling=" + camera.useOcclusionCulling + " LayerCullAdjusted=" + adjusted + " LayerCullSpherical=" + camera.layerCullSpherical + " LODAdjusted=False");
+                    LogVisibilityInventory(camera);
+                }
             }
+        }
+
+        private static void LogVisibilityInventory(Camera mainCamera)
+        {
+            Camera[] cameras = UnityEngine.Object.FindObjectsOfType<Camera>(true);
+            List<string> cameraRecords = new List<string>();
+            for (int i = 0; i < cameras.Length; i++)
+            {
+                Camera camera = cameras[i];
+                if (camera == null) continue;
+                string components = string.Join(",", camera.GetComponents<Component>().Where(component => component != null).Select(component => component.GetType().FullName).ToArray());
+                cameraRecords.Add(camera.name + "[enabled=" + camera.enabled + ",active=" + camera.gameObject.activeInHierarchy + ",depth=" + camera.depth.ToString("F1") + ",ortho=" + camera.orthographic + ",orthoSize=" + camera.orthographicSize.ToString("F2") + ",fov=" + camera.fieldOfView.ToString("F1") + ",farClip=" + camera.farClipPlane.ToString("F2") + ",cullingMask=" + camera.cullingMask + ",targetTexture=" + (camera.targetTexture == null ? "none" : camera.targetTexture.name) + ",components=" + components + "]");
+            }
+
+            MonoBehaviour[] behaviours = UnityEngine.Object.FindObjectsOfType<MonoBehaviour>(true);
+            List<string> fogRecords = new List<string>();
+            for (int i = 0; i < behaviours.Length; i++)
+            {
+                MonoBehaviour behaviour = behaviours[i];
+                if (behaviour == null) continue;
+                string typeName = behaviour.GetType().FullName;
+                if (typeName == null || (typeName.IndexOf("FogOfWar", StringComparison.OrdinalIgnoreCase) < 0 && typeName.IndexOf("FoW", StringComparison.OrdinalIgnoreCase) < 0)) continue;
+                fogRecords.Add(typeName + "@" + GetPath(behaviour.transform) + "[enabled=" + behaviour.enabled + ",active=" + behaviour.gameObject.activeInHierarchy + "," + DescribeFields(behaviour, "team", "fogFarPlane", "outsideFogStrength", "mapResolution", "mapSize", "mapOffset", "circleRadius", "shapeType", "outputToTexture") + "]");
+            }
+
+            string mapHelper = "unavailable";
+            try
+            {
+                mapHelper = MapHelper.Instance == null ? "none" : "Radius=" + MapHelper.Instance.Radius.ToString("F2") + ",MaxViewDistance=" + MapHelper.Instance.GetMaxViewDis().ToString("F2");
+            }
+            catch (Exception exception)
+            {
+                mapHelper = "error=" + exception.GetType().Name;
+            }
+
+            LODGroup[] lodGroups = UnityEngine.Object.FindObjectsOfType<LODGroup>(true);
+            List<string> lodRecords = new List<string>();
+            for (int i = 0; i < lodGroups.Length && i < 24; i++)
+            {
+                LODGroup group = lodGroups[i];
+                if (group == null) continue;
+                float distance = mainCamera == null ? 0f : Vector3.Distance(mainCamera.transform.position, group.transform.position);
+                lodRecords.Add(GetPath(group.transform) + "[active=" + group.gameObject.activeInHierarchy + ",enabled=" + group.enabled + ",distance=" + distance.ToString("F2") + ",lodCount=" + group.GetLODs().Length + "]");
+            }
+
+            Renderer[] renderers = UnityEngine.Object.FindObjectsOfType<Renderer>(true);
+            List<string> rendererRecords = new List<string>();
+            float boundaryStart = mainCamera == null ? 0f : Mathf.Max(0f, mainCamera.farClipPlane - 20f);
+            for (int i = 0; i < renderers.Length && rendererRecords.Count < 32; i++)
+            {
+                Renderer renderer = renderers[i];
+                if (renderer == null || renderer is ParticleSystemRenderer || HasCanvasAncestor(renderer.transform)) continue;
+                float distance = mainCamera == null ? 0f : Vector3.Distance(mainCamera.transform.position, renderer.bounds.center);
+                if (mainCamera != null && distance < boundaryStart) continue;
+                LODGroup ancestor = renderer.GetComponentInParent<LODGroup>();
+                Material material = renderer.sharedMaterial;
+                rendererRecords.Add(GetPath(renderer.transform) + "[active=" + renderer.gameObject.activeInHierarchy + ",enabled=" + renderer.enabled + ",distance=" + distance.ToString("F2") + ",layer=" + renderer.gameObject.layer + ",bounds=" + renderer.bounds + ",lodAncestor=" + (ancestor == null ? "none" : GetPath(ancestor.transform)) + ",lodCount=" + (ancestor == null ? 0 : ancestor.GetLODs().Length) + ",lightmapIndex=" + renderer.lightmapIndex + ",material=" + (material == null ? "none" : material.name) + ",shader=" + (material == null || material.shader == null ? "none" : material.shader.name) + "]");
+            }
+
+            Plugin.ModLogger.LogInfo("Visibility inventory: MainCamera=" + (mainCamera == null ? "none" : mainCamera.name) + " Cameras=" + string.Join(";", cameraRecords.ToArray()) + " FogComponents=" + string.Join(";", fogRecords.ToArray()) + " LODGroups=" + string.Join(";", lodRecords.ToArray()) + " BoundaryRenderers=" + string.Join(";", rendererRecords.ToArray()) + " NativeLodBias=" + QualitySettings.lodBias.ToString("F2") + " MapHelper=" + mapHelper);
+        }
+
+        private static string DescribeFields(Component component, params string[] names)
+        {
+            List<string> values = new List<string>();
+            for (int i = 0; i < names.Length; i++)
+            {
+                System.Reflection.FieldInfo field = component.GetType().GetField(names[i]);
+                if (field == null) continue;
+                object value = field.GetValue(component);
+                values.Add(names[i] + "=" + (value == null ? "null" : value.ToString()));
+            }
+            return string.Join(",", values.ToArray());
+        }
+
+        private static string GetPath(Transform transform)
+        {
+            if (transform == null) return "(none)";
+            string path = transform.name;
+            while (transform.parent != null)
+            {
+                transform = transform.parent;
+                path = transform.name + "/" + path;
+            }
+            return path;
+        }
+
+        private static bool HasCanvasAncestor(Transform transform)
+        {
+            while (transform != null)
+            {
+                Component[] components = transform.GetComponents<Component>();
+                for (int i = 0; i < components.Length; i++) if (components[i] != null && components[i].GetType().FullName == "UnityEngine.Canvas") return true;
+                transform = transform.parent;
+            }
+            return false;
         }
 
         internal static void RestoreNative()
@@ -2944,329 +3053,4 @@ namespace HaishanTweaks
         }
     }
 
-    #if false
-    internal enum EnemyDifficultyRank
-    {
-        Regular,
-        Elite,
-        Boss,
-        Unsupported
-    }
-
-    internal enum CharacterCategory
-    {
-        Player,
-        Regular,
-        Elite,
-        Boss,
-        Unsupported
-    }
-
-    internal static class EnemyDifficultySystem
-    {
-        private sealed class Baseline
-        {
-            public float MaxHP;
-            public float FillHP;
-            public float Attack;
-            public float Speed;
-        }
-
-        private static readonly Dictionary<int, Baseline> Baselines = new Dictionary<int, Baseline>();
-
-        internal static EnemyDifficultyRank GetRank(Thing thing)
-        {
-            Npc npc = thing as Npc;
-            if (npc == null || npc.m_Unit == null || Plugin.IsPlayer(npc)) return EnemyDifficultyRank.Unsupported;
-            if (npc.m_ThingAttribute == null || CtrlManager.Instance == null || CtrlManager.Instance.CtrlNpc == null) return EnemyDifficultyRank.Unsupported;
-            if (npc.m_ThingAttribute.Team == CtrlManager.Instance.CtrlNpc.m_ThingAttribute.Team) return EnemyDifficultyRank.Unsupported;
-            if (npc.m_Unit.Rank == UnitRank.Boss) return EnemyDifficultyRank.Boss;
-            if (npc.m_Unit.Rank == UnitRank.Elite) return EnemyDifficultyRank.Elite;
-            if (npc.m_Unit.Rank == UnitRank.None) return EnemyDifficultyRank.Regular;
-            return EnemyDifficultyRank.Unsupported;
-        }
-
-        internal static CharacterCategory GetCharacterCategory(Npc npc)
-        {
-            if (npc == null) return CharacterCategory.Unsupported;
-            if (Plugin.IsPlayer(npc)) return CharacterCategory.Player;
-            EnemyDifficultyRank rank = GetRank(npc);
-            if (rank == EnemyDifficultyRank.Regular) return CharacterCategory.Regular;
-            if (rank == EnemyDifficultyRank.Elite) return CharacterCategory.Elite;
-            if (rank == EnemyDifficultyRank.Boss) return CharacterCategory.Boss;
-            return CharacterCategory.Unsupported;
-        }
-
-        internal static float HealthMultiplier(EnemyDifficultyRank rank)
-        {
-            if (rank == EnemyDifficultyRank.Elite) return Plugin.EliteHealthMultiplier.Value;
-            if (rank == EnemyDifficultyRank.Boss) return Plugin.BossHealthMultiplier.Value;
-            return Plugin.RegularEnemyHealthMultiplier.Value;
-        }
-
-        internal static float DamageMultiplier(EnemyDifficultyRank rank)
-        {
-            if (rank == EnemyDifficultyRank.Elite) return Plugin.EliteDamageMultiplier.Value;
-            if (rank == EnemyDifficultyRank.Boss) return Plugin.BossDamageMultiplier.Value;
-            return Plugin.RegularEnemyDamageMultiplier.Value;
-        }
-
-        internal static void Initialize(Npc npc)
-        {
-            EnemyDifficultyRank rank = GetRank(npc);
-            if (rank == EnemyDifficultyRank.Unsupported) return;
-            PropertyData hp = npc.m_ThingAttribute.GetProperty(AttributeName.HP);
-            Baseline baseline = new Baseline { MaxHP = hp.GetValue(), FillHP = hp._FillValue, Attack = npc.m_ThingAttribute.GetProperty(AttributeName.Attack).GetValue(), Speed = npc.m_ThingAttribute.GetProperty(AttributeName.Speed).GetValue() };
-            Baselines[npc.m_ID] = baseline;
-            ApplyHealth(npc, baseline, rank);
-            if (Plugin.EnemyDifficultyDiagnostics.Value)
-                Plugin.ModLogger.LogInfo("Enemy difficulty: Npc=" + npc.m_ID + " Rank=" + rank + " NativeMaxHP=" + baseline.MaxHP.ToString("F2") + " AppliedMaxHP=" + hp.GetValue().ToString("F2") + " HealthMultiplier=" + HealthMultiplier(rank).ToString("F2") + " DamageMultiplier=" + DamageMultiplier(rank).ToString("F2") + " NativeMoveSpeed=" + baseline.Speed.ToString("F2") + " AppliedMoveSpeed=" + (baseline.Speed * (rank == EnemyDifficultyRank.Regular ? Plugin.RegularEnemyMovementSpeedMultiplier.Value : 1f)).ToString("F2"));
-        }
-
-        private static void ApplyHealth(Npc npc, Baseline baseline, EnemyDifficultyRank rank)
-        {
-            PropertyData hp = npc.m_ThingAttribute.GetProperty(AttributeName.HP);
-            float fraction = baseline.MaxHP <= 0f ? 1f : baseline.FillHP / baseline.MaxHP;
-            hp._Value = baseline.MaxHP * HealthMultiplier(rank);
-            hp._FillValue = hp.GetValue() * Mathf.Clamp01(fraction);
-        }
-
-        internal static void Update()
-        {
-            ClampLiveSettings();
-        }
-
-        private static void ClampLiveSettings()
-        {
-            if (Plugin.RegularEnemyHealthMultiplier == null) return;
-            Plugin.RegularEnemyHealthMultiplier.Value = Mathf.Clamp(Plugin.RegularEnemyHealthMultiplier.Value, 0.25f, 20f);
-            Plugin.RegularEnemyDamageMultiplier.Value = Mathf.Clamp(Plugin.RegularEnemyDamageMultiplier.Value, 0.25f, 10f);
-            Plugin.RegularEnemyMovementSpeedMultiplier.Value = Mathf.Clamp(Plugin.RegularEnemyMovementSpeedMultiplier.Value, 0.5f, 3f);
-            Plugin.EliteHealthMultiplier.Value = Mathf.Clamp(Plugin.EliteHealthMultiplier.Value, 0.25f, 20f);
-            Plugin.EliteDamageMultiplier.Value = Mathf.Clamp(Plugin.EliteDamageMultiplier.Value, 0.25f, 10f);
-            Plugin.BossHealthMultiplier.Value = Mathf.Clamp(Plugin.BossHealthMultiplier.Value, 0.25f, 20f);
-            Plugin.BossDamageMultiplier.Value = Mathf.Clamp(Plugin.BossDamageMultiplier.Value, 0.25f, 10f);
-        }
-
-        internal static bool TryGetDamageMultiplier(Thing attacker, out float multiplier, out EnemyDifficultyRank rank)
-        {
-            rank = GetRank(attacker);
-            multiplier = rank == EnemyDifficultyRank.Unsupported ? 1f : DamageMultiplier(rank);
-            return rank != EnemyDifficultyRank.Unsupported;
-        }
-    }
-
-    [HarmonyPatch(typeof(Npc), "OnInit")]
-    internal static class EnemyDifficultyNpcPatch
-    {
-        private static void Postfix(Npc __instance) { EnemyDifficultySystem.Initialize(__instance); CharacterSizeSystem.Apply(__instance); }
-    }
-
-    [HarmonyPatch(typeof(Npc), nameof(Npc.OnDestroy))]
-    internal static class CharacterSizeDestroyPatch
-    {
-        private static void Postfix(Npc __instance) { CharacterSizeSystem.Remove(__instance); }
-    }
-
-    [HarmonyPatch(typeof(MonsterBasicAI), nameof(MonsterBasicAI.Init))]
-    internal static class EnemyDifficultyMovementPatch
-    {
-        private static void Postfix(MonsterBasicAI __instance, Npc npc)
-        {
-            if (__instance == null || npc == null || EnemyDifficultySystem.GetRank(npc) != EnemyDifficultyRank.Regular) return;
-            object authoring = AccessTools.Field(typeof(MonsterBasicAI), "m_AgentAuthoring").GetValue(__instance);
-            if (authoring == null) return;
-            System.Reflection.PropertyInfo steeringProperty = AccessTools.Property(authoring.GetType(), "EntitySteering");
-            if (steeringProperty == null) return;
-            object steering = steeringProperty.GetValue(authoring, null);
-            System.Reflection.FieldInfo speed = AccessTools.Field(steering.GetType(), "Speed");
-            if (speed == null) return;
-            speed.SetValue(steering, npc.m_Attribute.MoveSpeed * Plugin.RegularEnemyMovementSpeedMultiplier.Value);
-            steeringProperty.SetValue(authoring, steering, null);
-        }
-    }
-
-    [HarmonyPatch(typeof(FightBody), nameof(FightBody.CalculationDamage))]
-    internal static class EnemyDifficultyDamagePatch
-    {
-        private static void Postfix(Thing fromthing, ref float __result)
-        {
-            float multiplier;
-            EnemyDifficultyRank rank;
-            if (!EnemyDifficultySystem.TryGetDamageMultiplier(fromthing, out multiplier, out rank) || __result <= 0f) return;
-            float native = __result;
-            __result *= multiplier;
-            if (Plugin.EnemyDifficultyDiagnostics.Value)
-                Plugin.ModLogger.LogInfo("Enemy damage: Attacker=" + fromthing.m_ID + " Rank=" + rank + " NativeDamage=" + native.ToString("F2") + " Multiplier=" + multiplier.ToString("F2") + " FinalDamage=" + __result.ToString("F2"));
-        }
-    }
-
-    internal static class CharacterSizeSystem
-    {
-        private sealed class State { public Npc Npc; public Transform View; public Transform Root; public Vector3 Scale; public Vector3 Position; public float LastMultiplier = -1f; public float RetryUntil; public float NextRetry; public bool FailureReported; public CharacterCategory Category = CharacterCategory.Unsupported; }
-        private static readonly Dictionary<int, State> States = new Dictionary<int, State>();
-        private static readonly HashSet<string> HierarchyReports = new HashSet<string>();
-        private static readonly HashSet<string> ResolutionReports = new HashSet<string>();
-        private static int sceneHandle = int.MinValue;
-
-        internal static void Apply(Npc npc, bool scaleOverwritten = false)
-        {
-            if (npc == null || npc.m_View == null || npc.m_View.ViewShow == null) return;
-            Transform view = npc.m_View.ViewShow;
-            State state;
-            if (!States.TryGetValue(npc.m_ID, out state) || state.View != view)
-            {
-                if (state != null && state.Root != null) { state.Root.localScale = state.Scale; state.Root.localPosition = state.Position; }
-                state = new State { Npc = npc, View = view, RetryUntil = Time.unscaledTime + 3f, NextRetry = 0f };
-                States[npc.m_ID] = state;
-            }
-            Transform visual = state.Root;
-            if (visual == null)
-            {
-                if (state.FailureReported) return;
-                if (Time.unscaledTime < state.NextRetry) return;
-                visual = ResolveVisualRoot(view);
-                state.NextRetry = Time.unscaledTime + 0.15f;
-                if (visual == null)
-                {
-                    if (Time.unscaledTime < state.RetryUntil) return;
-                    string reportKey = view.name + ":" + view.childCount;
-                    if (!state.FailureReported && Plugin.CharacterSizeDiagnostics.Value && HierarchyReports.Add(reportKey)) LogHierarchy(npc, view);
-                    state.FailureReported = true;
-                    return;
-                }
-                state.Root = visual;
-                state.Scale = visual.localScale;
-                state.Position = visual.localPosition;
-                state.LastMultiplier = -1f;
-            }
-            else if (!visual.gameObject.activeInHierarchy) return;
-            CharacterCategory category = EnemyDifficultySystem.GetCharacterCategory(npc);
-            if (category == CharacterCategory.Unsupported && Time.unscaledTime < state.RetryUntil)
-            {
-                if (Time.unscaledTime < state.NextRetry) return;
-                state.NextRetry = Time.unscaledTime + 0.15f;
-                return;
-            }
-            if (category != state.Category) { state.Category = category; state.LastMultiplier = -1f; }
-            float multiplier = SizeMultiplier(category);
-            if (state.Root != null && Mathf.Approximately(state.LastMultiplier, multiplier)) return;
-            Vector3 currentScaleBeforeApply = visual.localScale;
-            visual.localScale = state.Scale;
-            visual.localPosition = state.Position;
-            Bounds nativeBounds;
-            Bounds scaledBounds = default(Bounds);
-            bool hasBounds = TryGetBounds(visual, out nativeBounds);
-            visual.localScale = state.Scale * multiplier;
-            hasBounds = hasBounds && TryGetBounds(visual, out scaledBounds);
-            float lift = 0f;
-            if (hasBounds)
-            {
-                lift = nativeBounds.min.y - scaledBounds.min.y;
-                float parentScaleY = visual.parent == null ? 1f : Mathf.Abs(visual.parent.lossyScale.y);
-                visual.localPosition = state.Position + Vector3.up * (lift / Mathf.Max(parentScaleY, 0.0001f));
-            }
-            else visual.localPosition = state.Position;
-            string resolutionKey = visual.GetInstanceID().ToString();
-            float boundsRatio = hasBounds && nativeBounds.size.y > 0.001f ? scaledBounds.size.y / nativeBounds.size.y : 0f;
-            if (Plugin.CharacterSizeDiagnostics.Value && !Mathf.Approximately(state.LastMultiplier, multiplier) && ResolutionReports.Add(resolutionKey))
-                Plugin.ModLogger.LogInfo("Character size: Npc=" + npc.m_ID + " Category=" + category + " VisualRoot=" + GetPath(visual) + " VisualRootInstanceId=" + visual.GetInstanceID() + " NativeLocalScale=" + state.Scale + " CurrentLocalScaleBeforeApply=" + currentScaleBeforeApply + " DesiredLocalScale=" + visual.localScale + " CurrentLocalScaleAfterApply=" + visual.localScale + " NativeBoundsSize=" + (hasBounds ? nativeBounds.size.ToString() : "n/a") + " ScaledBoundsSize=" + (hasBounds ? scaledBounds.size.ToString() : "n/a") + " NativeBoundsHeight=" + (hasBounds ? nativeBounds.size.y.ToString("F2") : "n/a") + " ScaledBoundsHeight=" + (hasBounds ? scaledBounds.size.y.ToString("F2") : "n/a") + " BoundsRatio=" + boundsRatio.ToString("F2") + " Multiplier=" + multiplier.ToString("F2") + " ScaleOverwritten=" + scaleOverwritten + " NativeBottomY=" + (hasBounds ? nativeBounds.min.y.ToString("F2") : "n/a") + " ScaledBottomY=" + (hasBounds ? scaledBounds.min.y.ToString("F2") : "n/a") + " VisualLift=" + lift.ToString("F2") + " GameplayRootScale=" + npc.m_View.transform.localScale + " ColliderChanged=False NavMeshChanged=False");
-            state.LastMultiplier = multiplier;
-        }
-
-        private static float SizeMultiplier(CharacterCategory category) { if (category == CharacterCategory.Player) return Plugin.PlayerCharacterSizeMultiplier.Value; if (category == CharacterCategory.Elite) return Plugin.EliteSizeMultiplier.Value; if (category == CharacterCategory.Boss) return Plugin.BossSizeMultiplier.Value; if (category == CharacterCategory.Regular) return Plugin.RegularEnemySizeMultiplier.Value; return 1f; }
-
-        internal static void Update()
-        {
-            int currentScene = SceneManager.GetActiveScene().handle;
-            if (currentScene != sceneHandle) { States.Clear(); sceneHandle = currentScene; }
-            foreach (State state in States.Values) if (state.Npc != null) Apply(state.Npc);
-        }
-
-        internal static void ReapplyOverwrittenScales()
-        {
-            foreach (State state in States.Values)
-            {
-                if (state.Npc == null || state.Root == null || !state.Root.gameObject.activeInHierarchy) continue;
-                CharacterCategory category = EnemyDifficultySystem.GetCharacterCategory(state.Npc);
-                Vector3 desired = state.Scale * SizeMultiplier(category);
-                if ((state.Root.localScale - desired).sqrMagnitude > 0.0001f) Apply(state.Npc, true);
-            }
-        }
-
-        internal static void Remove(Npc npc) { if (npc != null) States.Remove(npc.m_ID); }
-
-        private static Transform ResolveVisualRoot(Transform view)
-        {
-            Renderer[] renderers = view.GetComponentsInChildren<Renderer>(true).Where(IsCharacterRenderer).ToArray();
-            if (renderers.Length == 0) return null;
-            Transform animator = FindComponentTransform(view, "UnityEngine.Animator");
-            Transform common = renderers[0].transform;
-            for (int i = 1; i < renderers.Length; i++) common = CommonAncestor(common, renderers[i].transform, view);
-            if (IsSafe(common) && common != view) return common;
-            if (animator != null && IsSafe(animator) && CountRenderers(animator) > 0) return animator;
-            Transform[] all = view.GetComponentsInChildren<Transform>(true);
-            Transform best = null;
-            int bestCount = 0;
-            for (int i = 0; i < all.Length; i++) { int count = CountRenderers(all[i]); if (all[i] != view && count > bestCount && IsSafe(all[i])) { best = all[i]; bestCount = count; } }
-            return best;
-        }
-
-        private static bool IsCharacterRenderer(Renderer renderer) { return renderer != null && !(renderer is ParticleSystemRenderer) && !HasAncestorComponent(renderer.transform, "UnityEngine.Canvas"); }
-        private static int CountRenderers(Transform root) { return root.GetComponentsInChildren<Renderer>(true).Count(IsCharacterRenderer); }
-        private static Transform CommonAncestor(Transform a, Transform b, Transform stop) { Transform current = a; while (current != null) { Transform probe = b; while (probe != null) { if (probe == current) return current; if (probe == stop) break; probe = probe.parent; } if (current == stop) break; current = current.parent; } return stop; }
-
-        private static bool IsSafe(Transform candidate)
-        {
-            if (candidate == null || candidate.GetComponentsInChildren<Collider>(true).Length > 0 || candidate.GetComponentsInChildren<CharacterController>(true).Length > 0 || HasAncestorComponent(candidate, "UnityEngine.AI.NavMeshAgent") || HasDescendantComponent(candidate, "ProjectDawn.Navigation.AgentAuthoring")) return false;
-            return candidate.GetComponentsInChildren<Renderer>(true).Length > 0;
-        }
-
-        private static void LogHierarchy(Npc npc, Transform view)
-        {
-            Renderer[] renderers = view.GetComponentsInChildren<Renderer>(true);
-            List<string> skinned = new List<string>();
-            List<string> mesh = new List<string>();
-            for (int i = 0; i < renderers.Length; i++) { string path = GetPath(renderers[i].transform); if (renderers[i] is SkinnedMeshRenderer) skinned.Add(path); else if (renderers[i] is MeshRenderer) mesh.Add(path); }
-            Transform animator = FindComponentTransform(view, "UnityEngine.Animator");
-            Plugin.ModLogger.LogInfo("Character hierarchy: Npc=" + npc.m_ID + " NpcRoot=" + GetPath(view) + " RootComponents=[" + string.Join(",", view.GetComponents<Component>().Select(x => x.GetType().Name).ToArray()) + "] ChildCount=" + view.childCount + " AnimatorPath=" + (animator == null ? "none" : GetPath(animator)) + " RendererCount=" + renderers.Length + " SkinnedRendererPaths=[" + string.Join(";", skinned.Take(12).ToArray()) + "] MeshRendererPaths=[" + string.Join(";", mesh.Take(12).ToArray()) + "] CandidateAncestors=runtime-common-ancestor");
-        }
-
-        private static bool TryGetBounds(Transform root, out Bounds bounds)
-        {
-            Renderer[] renderers = root.GetComponentsInChildren<Renderer>(true);
-            if (renderers.Length == 0) { bounds = default(Bounds); return false; }
-            bounds = renderers[0].bounds;
-            for (int i = 1; i < renderers.Length; i++) bounds.Encapsulate(renderers[i].bounds);
-            return true;
-        }
-
-        private static Transform FindComponentTransform(Transform root, string fullName)
-        {
-            Component[] components = root.GetComponentsInChildren<Component>(true);
-            for (int i = 0; i < components.Length; i++) if (components[i] != null && components[i].GetType().FullName == fullName) return components[i].transform;
-            return null;
-        }
-
-        private static bool HasAncestorComponent(Transform current, string fullName)
-        {
-            while (current != null)
-            {
-                Component[] components = current.GetComponents<Component>();
-                for (int i = 0; i < components.Length; i++) if (components[i] != null && components[i].GetType().FullName == fullName) return true;
-                current = current.parent;
-            }
-            return false;
-        }
-
-        private static bool HasDescendantComponent(Transform root, string fullName)
-        {
-            Component[] components = root.GetComponentsInChildren<Component>(true);
-            for (int i = 0; i < components.Length; i++) if (components[i] != null && components[i].GetType().FullName == fullName) return true;
-            return false;
-        }
-
-        private static string GetPath(Transform transform) { string path = transform.name; while (transform.parent != null) { transform = transform.parent; path = transform.name + "/" + path; } return path; }
-    }
-    #endif
 }

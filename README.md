@@ -1,4 +1,4 @@
-# HaishanTweaks v0.12.0
+# HaishanTweaks v0.12.2
 
 HaishanTweaks is an unofficial BepInEx 5 mod for 《海山：昆仑镜》 (Mirror of Heaven). It is intended for the game's single-player gameplay.
 
@@ -55,6 +55,7 @@ Progression actions can permanently change a save. Back up saves before using th
 - Reduce Blur When Zoomed Out
 - Hide Zoom Occluders
 - Extended Map Visibility
+- Optional one-shot camera and Fog-of-War visibility diagnostics
 
 The blur option reduces the game's Depth of Field effect. It does not disable all post-processing.
 
@@ -101,7 +102,9 @@ The zoom fallback ignores intersections within 2 world units of the target and p
 
 Renderer-only fallback now protects ordinary textured environment materials. It is reserved for untextured, large, thin, light/simple meshes likely to be the zoom-exposed blocker; native `_Dither` handling remains authoritative where available.
 
-Extended Map Visibility is enabled by default and activates only above 1.25x during normal gameplay follow. It disables unsafe baked occlusion for the modded camera envelope and proportionally extends the native far clip and non-UI layer cull distances. Native values are restored at normal zoom and during scripted or cinematic camera use.
+Extended Map Visibility is enabled by default and activates only above 1.25x during normal gameplay follow. It disables unsafe baked occlusion for the modded camera envelope and extends the native far clip and non-UI layer cull distances using both proportional camera scaling and the measured camera retreat plus a bounded safety margin. Native values are restored at normal zoom and during scripted or cinematic camera use.
+
+`CameraVisibilityDiagnostics` is disabled by default. When enabled, it records one bounded visibility inventory per extended-visibility activation, including active cameras, camera component stacks and coverage, Fog-of-War components and fields, LOD groups, native LOD bias, and native `MapHelper` view-distance values. It does not modify Fog-of-War state.
 
 ## Compatibility / Warnings
 

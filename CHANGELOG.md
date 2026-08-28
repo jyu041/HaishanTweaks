@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.12.2
+
+- Improved far-clip and layer-cull coverage using measured camera retreat plus a bounded safety margin.
+- Expanded default-off visibility diagnostics with secondary-camera coverage, Fog-of-War fields, LOD inventory, and layer-cull spherical state.
+- Confirmed the decompiled Fog-of-War package is not referenced by gameplay code; no Fog-of-War state is modified.
+
+## 0.12.1
+
+- Added default-off visibility diagnostics for active cameras, Fog-of-War components, and native map view-distance values.
+- Kept Fog-of-War state unchanged pending runtime confirmation of the dark outer-map cause.
+
 ## 0.12.0
 
 - Removed experimental Character Size controls because runtime model scaling was not reliable.
