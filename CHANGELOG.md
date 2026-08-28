@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.11.1
+
+- Reworked character visual-root resolution using runtime renderer hierarchy discovery with bounded retries.
+- Added one-shot character hierarchy diagnostics and removed unresolved-NPC log spam.
+- Added throttled renderer-bounds zoom occluder fallback with `HideZoomOccluders` toggle.
+- Protected HP fill-cost and sacrifice paths when Infinite Health is enabled.
+- Deferred camera obstruction behavior is preserved; the new fallback only hides zoom-exposed environment meshes.
+
+## 0.11.0
+
+- Added persistent regular, elite, and boss health/damage scaling.
+- Added regular enemy locomotion speed scaling without changing animator speed or attack timing.
+- Added visual-only player and enemy character size controls with 0.05x increments.
+- Added default-off enemy difficulty and character size diagnostics.
+- Deferred the v0.10.2 zoom obstruction issue unchanged.
+
 ## 0.10.2
 
 - Increased Enemy Density from 1x-5x to 1x-15x.

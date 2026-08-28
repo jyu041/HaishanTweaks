@@ -15,7 +15,7 @@ namespace HaishanTweaks
     {
         public const string PluginGuid = "com.jerry.haishantweaks";
         public const string PluginName = "HaishanTweaks";
-        public const string PluginVersion = "0.10.2";
+        public const string PluginVersion = "0.11.1";
 
         internal static ConfigEntry<bool> InfiniteHealth;
         internal static ConfigEntry<bool> InfiniteMP;
@@ -32,10 +32,24 @@ namespace HaishanTweaks
         internal static ConfigEntry<float> MultishotDelaySeconds;
         internal static ConfigEntry<int> EnemyDensityMultiplier;
         internal static ConfigEntry<bool> EnemyDiagnostics;
+        internal static ConfigEntry<float> RegularEnemyHealthMultiplier;
+        internal static ConfigEntry<float> RegularEnemyDamageMultiplier;
+        internal static ConfigEntry<float> RegularEnemyMovementSpeedMultiplier;
+        internal static ConfigEntry<float> EliteHealthMultiplier;
+        internal static ConfigEntry<float> EliteDamageMultiplier;
+        internal static ConfigEntry<float> BossHealthMultiplier;
+        internal static ConfigEntry<float> BossDamageMultiplier;
+        internal static ConfigEntry<float> PlayerCharacterSizeMultiplier;
+        internal static ConfigEntry<float> RegularEnemySizeMultiplier;
+        internal static ConfigEntry<float> EliteSizeMultiplier;
+        internal static ConfigEntry<float> BossSizeMultiplier;
+        internal static ConfigEntry<bool> EnemyDifficultyDiagnostics;
+        internal static ConfigEntry<bool> CharacterSizeDiagnostics;
         internal static ConfigEntry<bool> CameraGeometryDiagnostics;
         internal static ConfigEntry<float> CameraDistanceMultiplier;
         internal static ConfigEntry<bool> ReduceFogWhenZoomedOut;
         internal static ConfigEntry<bool> ReduceBlurWhenZoomedOut;
+        internal static ConfigEntry<bool> HideZoomOccluders;
         internal static ConfigEntry<bool> AllowHighRankStartingSkills;
         internal static ConfigEntry<bool> AllowHighRankStartingEntries;
         internal static float RuntimeDamageMultiplier;
@@ -92,10 +106,25 @@ namespace HaishanTweaks
             EnemyDensityMultiplier = Config.Bind("Enemies", "EnemyDensityMultiplier", 1, "Ordinary combat enemy density multiplier (1-15). Bosses, elites, and scripted enemies remain native.");
             EnemyDensityMultiplier.Value = Mathf.Clamp(EnemyDensityMultiplier.Value, 1, 15);
             EnemyDiagnostics = Config.Bind("Enemies", "EnemyDiagnostics", false, "Log ordinary enemy density decisions.");
+            RegularEnemyHealthMultiplier = Config.Bind("Enemies", "RegularEnemyHealthMultiplier", 1f, "Regular enemy health multiplier (0.25-20.00)." );
+            RegularEnemyDamageMultiplier = Config.Bind("Enemies", "RegularEnemyDamageMultiplier", 1f, "Regular enemy outgoing damage multiplier (0.25-10.00)." );
+            RegularEnemyMovementSpeedMultiplier = Config.Bind("Enemies", "RegularEnemyMovementSpeedMultiplier", 1f, "Regular enemy locomotion multiplier (0.50-3.00)." );
+            EliteHealthMultiplier = Config.Bind("Enemies", "EliteHealthMultiplier", 1f, "Elite health multiplier (0.25-20.00)." );
+            EliteDamageMultiplier = Config.Bind("Enemies", "EliteDamageMultiplier", 1f, "Elite outgoing damage multiplier (0.25-10.00)." );
+            BossHealthMultiplier = Config.Bind("Enemies", "BossHealthMultiplier", 1f, "Boss health multiplier (0.25-20.00)." );
+            BossDamageMultiplier = Config.Bind("Enemies", "BossDamageMultiplier", 1f, "Boss outgoing damage multiplier (0.25-10.00)." );
+            PlayerCharacterSizeMultiplier = Config.Bind("CharacterSize", "PlayerCharacterSizeMultiplier", 1f, "Player visual model size multiplier (0.50-3.00)." );
+            RegularEnemySizeMultiplier = Config.Bind("CharacterSize", "RegularEnemySizeMultiplier", 1f, "Regular enemy visual model size multiplier (0.50-3.00)." );
+            EliteSizeMultiplier = Config.Bind("CharacterSize", "EliteSizeMultiplier", 1f, "Elite visual model size multiplier (0.50-3.00)." );
+            BossSizeMultiplier = Config.Bind("CharacterSize", "BossSizeMultiplier", 1f, "Boss visual model size multiplier (0.50-3.00)." );
+            EnemyDifficultyDiagnostics = Config.Bind("Enemies", "EnemyDifficultyDiagnostics", false, "Log one enemy difficulty record per initialization and damage event." );
+            CharacterSizeDiagnostics = Config.Bind("CharacterSize", "CharacterSizeDiagnostics", false, "Log character visual-root scaling records." );
+            ClampEnemyConfigs();
             CameraGeometryDiagnostics = Config.Bind("Camera", "CameraGeometryDiagnostics", false, "Log scene renderers encountered by extended zoom obstruction checks.");
             CameraDistanceMultiplier = Config.Bind("Camera", "CameraDistanceMultiplier", 1f, "Normal player-follow camera distance multiplier.");
             ReduceFogWhenZoomedOut = Config.Bind("Camera", "ReduceFogWhenZoomedOut", true, "Reduce Unity RenderSettings fog when the camera is zoomed out.");
             ReduceBlurWhenZoomedOut = Config.Bind("Camera", "ReduceBlurWhenZoomedOut", true, "Reduce the camera DepthOfField effect when zoomed out.");
+            HideZoomOccluders = Config.Bind("Camera", "HideZoomOccluders", true, "Hide environment meshes blocking the camera when zoomed beyond 1.25x.");
             AllowHighRankStartingSkills = Config.Bind("RunStart", "AllowHighRankStartingSkills", false, "Allow unlocked, discovered skills of any rank as starting skills.");
             AllowHighRankStartingEntries = Config.Bind("RunStart", "AllowHighRankStartingEntries", false, "Allow unlocked, discovered entries of any rank as starting entries.");
             toggleKey = Config.Bind("GUI", "ToggleKey", new KeyboardShortcut(KeyCode.F10), "Show or hide the HaishanTweaks window.");
@@ -111,7 +140,7 @@ namespace HaishanTweaks
             RuntimeAbilityRangeMultiplier = AbilityRangeMultiplier.Value;
             RuntimeCameraDistanceMultiplier = CameraDistanceMultiplier.Value;
 
-            Logger.LogInfo("HaishanTweaks 0.10.2 loaded");
+            Logger.LogInfo("HaishanTweaks 0.11.1 loaded");
             Logger.LogInfo("Infinite Health: " + OnOff(InfiniteHealth.Value));
             Logger.LogInfo("Infinite MP: " + OnOff(InfiniteMP.Value));
             Logger.LogInfo("No Skill Cooldowns: " + OnOff(NoSkillCooldowns.Value));
@@ -129,6 +158,8 @@ namespace HaishanTweaks
         private void Update()
         {
             PlayerMultishot.Update();
+            EnemyDifficultySystem.Update();
+            CharacterSizeSystem.Update();
             if (toggleKey.Value.IsDown())
             {
                 SetMenuVisible(!menuVisible);
@@ -139,7 +170,7 @@ namespace HaishanTweaks
         {
             if (menuVisible)
             {
-                windowRect = GUI.Window(84321, windowRect, DrawWindow, "HaishanTweaks v0.10.2");
+                windowRect = GUI.Window(84321, windowRect, DrawWindow, "HaishanTweaks v0.11.1");
                 if (sliderDirty && Event.current.type == EventType.MouseUp)
                 {
                     CommitSliders();
@@ -199,6 +230,7 @@ namespace HaishanTweaks
             DrawCameraSlider();
             DrawToggle("Reduce Fog When Zoomed Out", ReduceFogWhenZoomedOut);
             DrawToggle("Reduce Blur When Zoomed Out", ReduceBlurWhenZoomedOut);
+            DrawToggle("Hide Zoom Occluders", HideZoomOccluders);
         }
 
         private void DrawCombatTab()
@@ -234,7 +266,64 @@ namespace HaishanTweaks
             GUILayout.Space(8f);
             GUILayout.Label("ENEMIES");
             DrawEnemyDensity();
+            DrawEnemyDifficultySlider("Regular Enemy Health", RegularEnemyHealthMultiplier, 0.25f, 20f);
+            DrawEnemyDifficultySlider("Regular Enemy Damage", RegularEnemyDamageMultiplier, 0.25f, 10f);
+            DrawEnemyDifficultySlider("Regular Enemy Movement Speed", RegularEnemyMovementSpeedMultiplier, 0.5f, 3f);
+            DrawEnemyDifficultySlider("Elite Health", EliteHealthMultiplier, 0.25f, 20f);
+            DrawEnemyDifficultySlider("Elite Damage", EliteDamageMultiplier, 0.25f, 10f);
+            DrawEnemyDifficultySlider("Boss Health", BossHealthMultiplier, 0.25f, 20f);
+            DrawEnemyDifficultySlider("Boss Damage", BossDamageMultiplier, 0.25f, 10f);
+            DrawToggle("Enemy Difficulty Diagnostics", EnemyDifficultyDiagnostics);
+            GUILayout.Space(8f);
+            GUILayout.Label("CHARACTER SIZE");
+            DrawCharacterSizeSlider("Player Character Size", PlayerCharacterSizeMultiplier);
+            DrawCharacterSizeSlider("Regular Enemy Size", RegularEnemySizeMultiplier);
+            DrawCharacterSizeSlider("Elite Size", EliteSizeMultiplier);
+            DrawCharacterSizeSlider("Boss Size", BossSizeMultiplier);
+            DrawToggle("Character Size Diagnostics", CharacterSizeDiagnostics);
+            if (GUILayout.Button("Reset Enemy Difficulty and Character Size")) ResetEnemyDifficultyAndSize();
             GUILayout.EndScrollView();
+        }
+
+        private static void ClampEnemyConfigs()
+        {
+            RegularEnemyHealthMultiplier.Value = Mathf.Clamp(RegularEnemyHealthMultiplier.Value, 0.25f, 20f);
+            RegularEnemyDamageMultiplier.Value = Mathf.Clamp(RegularEnemyDamageMultiplier.Value, 0.25f, 10f);
+            RegularEnemyMovementSpeedMultiplier.Value = Mathf.Clamp(RegularEnemyMovementSpeedMultiplier.Value, 0.5f, 3f);
+            EliteHealthMultiplier.Value = Mathf.Clamp(EliteHealthMultiplier.Value, 0.25f, 20f);
+            EliteDamageMultiplier.Value = Mathf.Clamp(EliteDamageMultiplier.Value, 0.25f, 10f);
+            BossHealthMultiplier.Value = Mathf.Clamp(BossHealthMultiplier.Value, 0.25f, 20f);
+            BossDamageMultiplier.Value = Mathf.Clamp(BossDamageMultiplier.Value, 0.25f, 10f);
+            PlayerCharacterSizeMultiplier.Value = Mathf.Clamp(PlayerCharacterSizeMultiplier.Value, 0.5f, 3f);
+            RegularEnemySizeMultiplier.Value = Mathf.Clamp(RegularEnemySizeMultiplier.Value, 0.5f, 3f);
+            EliteSizeMultiplier.Value = Mathf.Clamp(EliteSizeMultiplier.Value, 0.5f, 3f);
+            BossSizeMultiplier.Value = Mathf.Clamp(BossSizeMultiplier.Value, 0.5f, 3f);
+        }
+
+        private void DrawEnemyDifficultySlider(string label, ConfigEntry<float> entry, float min, float max)
+        {
+            float value = Mathf.Clamp(entry.Value, min, max);
+            float next = Mathf.Clamp(GUILayout.HorizontalSlider(value, min, max), min, max);
+            next = Mathf.Round(next / 0.05f) * 0.05f;
+            if (!Mathf.Approximately(next, value)) { entry.Value = next; sliderDirty = true; }
+            GUILayout.Label(label + ": " + value.ToString("F2") + "x");
+        }
+
+        private void DrawCharacterSizeSlider(string label, ConfigEntry<float> entry)
+        {
+            float value = Mathf.Clamp(entry.Value, 0.5f, 3f);
+            float next = Mathf.Clamp(GUILayout.HorizontalSlider(value, 0.5f, 3f), 0.5f, 3f);
+            next = Mathf.Round(next / 0.05f) * 0.05f;
+            if (!Mathf.Approximately(next, value)) { entry.Value = next; sliderDirty = true; }
+            GUILayout.Label(label + ": " + value.ToString("F2") + "x");
+        }
+
+        private void ResetEnemyDifficultyAndSize()
+        {
+            RegularEnemyHealthMultiplier.Value = RegularEnemyDamageMultiplier.Value = RegularEnemyMovementSpeedMultiplier.Value = 1f;
+            EliteHealthMultiplier.Value = EliteDamageMultiplier.Value = BossHealthMultiplier.Value = BossDamageMultiplier.Value = 1f;
+            PlayerCharacterSizeMultiplier.Value = RegularEnemySizeMultiplier.Value = EliteSizeMultiplier.Value = BossSizeMultiplier.Value = 1f;
+            Config.Save();
         }
 
         private void DrawEnemyDensity()
@@ -1400,6 +1489,67 @@ namespace HaishanTweaks
         }
     }
 
+    [HarmonyPatch(typeof(ThingAttribute), nameof(ThingAttribute.AddPropertyValue), new Type[]
+    {
+        typeof(AttributeName), typeof(float), typeof(AttributeKind), typeof(int), typeof(bool), typeof(bool), typeof(bool), typeof(string), typeof(bool)
+    })]
+    internal static class InfiniteHealthFillCostPatch
+    {
+        private static void Prefix(ThingAttribute __instance, AttributeName name, AttributeKind kind, ref float value)
+        {
+            if (Plugin.InfiniteHealth.Value && name == AttributeName.HP && kind == AttributeKind.Fill && value < 0f && __instance != null && Plugin.IsPlayer(__instance.m_Owner))
+            {
+                if (Plugin.AbilityScalingDiagnostics.Value)
+                    Plugin.ModLogger.LogInfo("Infinite HP blocked: Player=" + __instance.m_Owner.m_ID + " Source=SkillCost RequestedDelta=" + value.ToString("F2") + " Method=ThingAttribute.AddPropertyValue");
+                value = 0f;
+            }
+        }
+    }
+
+    [HarmonyPatch(typeof(ThingAttribute), nameof(ThingAttribute.AddPropertyFillValue), new Type[]
+    {
+        typeof(AttributeName), typeof(float), typeof(int), typeof(E_DamageType), typeof(string), typeof(string), typeof(bool), typeof(bool), typeof(bool)
+    })]
+    internal static class InfiniteHealthDirectFillCostPatch
+    {
+        private static void Prefix(ThingAttribute __instance, AttributeName name, ref float value)
+        {
+            if (Plugin.InfiniteHealth.Value && name == AttributeName.HP && value < 0f && __instance != null && Plugin.IsPlayer(__instance.m_Owner))
+            {
+                if (Plugin.AbilityScalingDiagnostics.Value)
+                    Plugin.ModLogger.LogInfo("Infinite HP blocked: Player=" + __instance.m_Owner.m_ID + " Source=HPFill RequestedDelta=" + value.ToString("F2") + " Method=ThingAttribute.AddPropertyFillValue");
+                value = 0f;
+            }
+        }
+    }
+
+    [HarmonyPatch(typeof(ThingAttribute), nameof(ThingAttribute.AddPropertyFillValue), new Type[]
+    {
+        typeof(string), typeof(float), typeof(int), typeof(E_DamageType), typeof(string), typeof(string), typeof(bool), typeof(bool), typeof(bool), typeof(bool), typeof(bool)
+    })]
+    internal static class InfiniteHealthStringFillCostPatch
+    {
+        private static void Prefix(ThingAttribute __instance, string name, ref float value)
+        {
+            if (Plugin.InfiniteHealth.Value && string.Equals(name, "HP", StringComparison.Ordinal) && value < 0f && __instance != null && Plugin.IsPlayer(__instance.m_Owner)) value = 0f;
+        }
+    }
+
+    [HarmonyPatch(typeof(PropertyData), "set__FillValue")]
+    internal static class InfiniteHealthDirectCurrentHpPatch
+    {
+        private static void Prefix(PropertyData __instance, ref float value)
+        {
+            if (!Plugin.InfiniteHealth.Value || __instance == null || __instance.NameType != AttributeName.HP || __instance.TA == null || !Plugin.IsPlayer(__instance.TA.m_Owner)) return;
+            if (value < __instance._FillValue)
+            {
+                if (Plugin.AbilityScalingDiagnostics.Value)
+                    Plugin.ModLogger.LogInfo("Infinite HP blocked: Player=" + __instance.TA.m_Owner.m_ID + " Source=DirectCurrentHP RequestedValue=" + value.ToString("F2") + " BeforeHP=" + __instance._FillValue.ToString("F2") + " Method=PropertyData._FillValue");
+                value = __instance._FillValue;
+            }
+        }
+    }
+
     [HarmonyPatch(typeof(ThingAttribute), nameof(ThingAttribute.AddPropertyFillValue), new Type[]
     {
         typeof(string), typeof(float), typeof(int), typeof(E_DamageType), typeof(string), typeof(string), typeof(bool), typeof(bool), typeof(bool), typeof(bool), typeof(bool)
@@ -1628,7 +1778,10 @@ namespace HaishanTweaks
         private static readonly Dictionary<Material, MaterialState> Modified = new Dictionary<Material, MaterialState>();
         private static readonly Dictionary<Renderer, RendererState> ModifiedRenderers = new Dictionary<Renderer, RendererState>();
         private static readonly HashSet<int> Reported = new HashSet<int>();
+        private static readonly List<MeshRenderer> SceneCandidates = new List<MeshRenderer>();
         private static int sceneHandle = int.MinValue;
+        private static float nextEvaluation;
+        private static float nextCandidateRefresh;
 
         internal static void Update(CameraManager camera)
         {
@@ -1637,6 +1790,8 @@ namespace HaishanTweaks
             {
                 RestoreNative();
                 sceneHandle = currentScene;
+                SceneCandidates.Clear();
+                nextCandidateRefresh = 0f;
                 Reported.Clear();
             }
             if (camera == null || camera.m_Camera == null || PointField == null || Plugin.RuntimeCameraDistanceMultiplier <= 1.25f || !CameraDistanceScope.IsNormalFollow(camera))
@@ -1644,6 +1799,9 @@ namespace HaishanTweaks
                 RestoreNative();
                 return;
             }
+            if (!Plugin.HideZoomOccluders.Value) { RestoreNative(); return; }
+            if (Time.unscaledTime < nextEvaluation) return;
+            nextEvaluation = Time.unscaledTime + 0.15f;
             GameObject point = PointField.GetValue(camera) as GameObject;
             if (point == null) { RestoreNative(); return; }
             Vector3 origin = camera.m_Camera.transform.position;
@@ -1651,8 +1809,16 @@ namespace HaishanTweaks
             Vector3 direction = target - origin;
             float distance = direction.magnitude;
             if (distance <= 0.001f) { RestoreNative(); return; }
+            if (Time.unscaledTime >= nextCandidateRefresh)
+            {
+                SceneCandidates.Clear();
+                MeshRenderer[] meshes = UnityEngine.Object.FindObjectsOfType<MeshRenderer>();
+                for (int i = 0; i < meshes.Length; i++) if (IsEnvironmentCandidate(meshes[i])) SceneCandidates.Add(meshes[i]);
+                nextCandidateRefresh = Time.unscaledTime + 1f;
+            }
             HashSet<Material> visible = new HashSet<Material>();
             HashSet<Renderer> visibleRenderers = new HashSet<Renderer>();
+            HashSet<Renderer> ditherRenderers = new HashSet<Renderer>();
             int count = Physics.BoxCastNonAlloc(origin, new Vector3(0.1f, 0.1f, 0.1f), direction / distance, Hits, Quaternion.identity, distance);
             for (int i = 0; i < count; i++)
             {
@@ -1670,6 +1836,7 @@ namespace HaishanTweaks
                     }
                     if (supportsDither)
                     {
+                        ditherRenderers.Add(renderer);
                         foreach (Material material in materials)
                         {
                             visible.Add(material);
@@ -1696,6 +1863,23 @@ namespace HaishanTweaks
                         catch (Exception) { renderer.enabled = false; LogCandidate(renderer, materials.Length > 0 ? materials[0] : null, origin, point, "Disabled", currentScene); }
                     }
                 }
+            }
+            Ray ray = new Ray(origin, direction / distance);
+            for (int i = 0; i < SceneCandidates.Count; i++)
+            {
+                MeshRenderer renderer = SceneCandidates[i];
+                if (renderer == null || !renderer.enabled || ditherRenderers.Contains(renderer)) continue;
+                float rayDistance;
+                if (!renderer.bounds.IntersectRay(ray, out rayDistance) || rayDistance < 0f || rayDistance >= distance) continue;
+                visibleRenderers.Add(renderer);
+                RendererState state;
+                if (!ModifiedRenderers.TryGetValue(renderer, out state))
+                {
+                    state = new RendererState { Enabled = renderer.enabled, ShadowCastingMode = renderer.shadowCastingMode };
+                    ModifiedRenderers[renderer] = state;
+                }
+                try { renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.ShadowsOnly; LogCandidate(renderer, renderer.sharedMaterial, origin, point, "ShadowsOnly", currentScene, rayDistance, distance, "RendererBounds"); }
+                catch (Exception) { renderer.enabled = false; LogCandidate(renderer, renderer.sharedMaterial, origin, point, "Disabled", currentScene, rayDistance, distance, "RendererBounds"); }
             }
             foreach (Material material in Modified.Keys.ToList())
             {
@@ -1728,6 +1912,8 @@ namespace HaishanTweaks
             {
                 if (item.Key != null)
                 {
+                    if (Plugin.CameraGeometryDiagnostics.Value)
+                        Plugin.ModLogger.LogInfo("Zoom occluder restored: Renderer=" + item.Key.GetType().Name + " Path=" + GetPath(item.Key.transform));
                     item.Key.enabled = item.Value.Enabled;
                     item.Key.shadowCastingMode = item.Value.ShadowCastingMode;
                 }
@@ -1736,12 +1922,29 @@ namespace HaishanTweaks
             Reported.Clear();
         }
 
-        private static void LogCandidate(Renderer renderer, Material material, Vector3 origin, GameObject point, string action, int currentScene)
+        private static bool IsEnvironmentCandidate(MeshRenderer renderer)
+        {
+            if (renderer == null || renderer.GetComponentInParent<NpcView>() != null || HasAncestorComponent(renderer.transform, "UnityEngine.Canvas") || renderer.GetComponentInParent<BulletEffect>() != null || renderer.GetComponentInParent<ParticleSystem>() != null) return false;
+            return renderer.gameObject.activeInHierarchy && renderer.gameObject.layer != LayerMask.NameToLayer("UI");
+        }
+
+        private static bool HasAncestorComponent(Transform current, string fullName)
+        {
+            while (current != null)
+            {
+                Component[] components = current.GetComponents<Component>();
+                for (int i = 0; i < components.Length; i++) if (components[i] != null && components[i].GetType().FullName == fullName) return true;
+                current = current.parent;
+            }
+            return false;
+        }
+
+        private static void LogCandidate(Renderer renderer, Material material, Vector3 origin, GameObject point, string action, int currentScene, float rayDistance = -1f, float targetDistance = -1f, string method = "Collider")
         {
             if (!Plugin.CameraGeometryDiagnostics.Value || renderer == null || !Reported.Add(renderer.GetInstanceID())) return;
             string shader = material == null || material.shader == null ? "(none)" : material.shader.name;
             bool supportsDither = material != null && material.shader != null && material.shader.name != "Standard" && material.HasProperty("_Dither");
-            Plugin.ModLogger.LogInfo("Zoom obstruction: Scene=" + SceneManager.GetActiveScene().name + " Path=" + GetPath(renderer.transform) + " Renderer=" + renderer.GetType().Name + " Layer=" + renderer.gameObject.layer + " Tag=" + renderer.gameObject.tag + " Shader=" + shader + " SupportsDither=" + supportsDither + " HitByExtendedCast=True Action=" + action + " Bounds=" + renderer.bounds + " DistanceToCamera=" + Vector3.Distance(origin, renderer.bounds.center).ToString("F2") + " DistanceToPlayer=" + Vector3.Distance(point.transform.position, renderer.bounds.center).ToString("F2"));
+            Plugin.ModLogger.LogInfo("Zoom occluder: Scene=" + SceneManager.GetActiveScene().name + " Path=" + GetPath(renderer.transform) + " Method=" + method + " Renderer=" + renderer.GetType().Name + " Material=" + (material == null ? "(none)" : material.name) + " Shader=" + shader + " Bounds=" + renderer.bounds + " RayDistance=" + rayDistance.ToString("F2") + " TargetDistance=" + targetDistance.ToString("F2") + " Action=" + action);
         }
 
         private static string GetPath(Transform current)
@@ -2667,5 +2870,285 @@ namespace HaishanTweaks
             if (!Plugin.AbilityScalingDiagnostics.Value || __instance == null || !Plugin.IsPlayer(__instance.m_Owner)) return;
             Plugin.ModLogger.LogInfo("Projectile coverage: Skill=" + skillname + " ExecutionPath=SetSkillBox Classification=PlayerAttachedHitbox Supported=False Reason=NotProjectile Index=" + index);
         }
+    }
+
+    internal enum EnemyDifficultyRank
+    {
+        Regular,
+        Elite,
+        Boss,
+        Unsupported
+    }
+
+    internal static class EnemyDifficultySystem
+    {
+        private sealed class Baseline
+        {
+            public float MaxHP;
+            public float FillHP;
+            public float Attack;
+            public float Speed;
+        }
+
+        private static readonly Dictionary<int, Baseline> Baselines = new Dictionary<int, Baseline>();
+
+        internal static EnemyDifficultyRank GetRank(Thing thing)
+        {
+            Npc npc = thing as Npc;
+            if (npc == null || npc.m_Unit == null || Plugin.IsPlayer(npc)) return EnemyDifficultyRank.Unsupported;
+            if (npc.m_ThingAttribute == null || CtrlManager.Instance == null || CtrlManager.Instance.CtrlNpc == null) return EnemyDifficultyRank.Unsupported;
+            if (npc.m_ThingAttribute.Team == CtrlManager.Instance.CtrlNpc.m_ThingAttribute.Team) return EnemyDifficultyRank.Unsupported;
+            if (npc.m_Unit.Rank == UnitRank.Boss) return EnemyDifficultyRank.Boss;
+            if (npc.m_Unit.Rank == UnitRank.Elite) return EnemyDifficultyRank.Elite;
+            if (npc.m_Unit.Rank == UnitRank.None) return EnemyDifficultyRank.Regular;
+            return EnemyDifficultyRank.Unsupported;
+        }
+
+        internal static float HealthMultiplier(EnemyDifficultyRank rank)
+        {
+            if (rank == EnemyDifficultyRank.Elite) return Plugin.EliteHealthMultiplier.Value;
+            if (rank == EnemyDifficultyRank.Boss) return Plugin.BossHealthMultiplier.Value;
+            return Plugin.RegularEnemyHealthMultiplier.Value;
+        }
+
+        internal static float DamageMultiplier(EnemyDifficultyRank rank)
+        {
+            if (rank == EnemyDifficultyRank.Elite) return Plugin.EliteDamageMultiplier.Value;
+            if (rank == EnemyDifficultyRank.Boss) return Plugin.BossDamageMultiplier.Value;
+            return Plugin.RegularEnemyDamageMultiplier.Value;
+        }
+
+        internal static void Initialize(Npc npc)
+        {
+            EnemyDifficultyRank rank = GetRank(npc);
+            if (rank == EnemyDifficultyRank.Unsupported) return;
+            PropertyData hp = npc.m_ThingAttribute.GetProperty(AttributeName.HP);
+            Baseline baseline = new Baseline { MaxHP = hp.GetValue(), FillHP = hp._FillValue, Attack = npc.m_ThingAttribute.GetProperty(AttributeName.Attack).GetValue(), Speed = npc.m_ThingAttribute.GetProperty(AttributeName.Speed).GetValue() };
+            Baselines[npc.m_ID] = baseline;
+            ApplyHealth(npc, baseline, rank);
+            if (Plugin.EnemyDifficultyDiagnostics.Value)
+                Plugin.ModLogger.LogInfo("Enemy difficulty: Npc=" + npc.m_ID + " Rank=" + rank + " NativeMaxHP=" + baseline.MaxHP.ToString("F2") + " AppliedMaxHP=" + hp.GetValue().ToString("F2") + " HealthMultiplier=" + HealthMultiplier(rank).ToString("F2") + " DamageMultiplier=" + DamageMultiplier(rank).ToString("F2") + " NativeMoveSpeed=" + baseline.Speed.ToString("F2") + " AppliedMoveSpeed=" + (baseline.Speed * (rank == EnemyDifficultyRank.Regular ? Plugin.RegularEnemyMovementSpeedMultiplier.Value : 1f)).ToString("F2"));
+        }
+
+        private static void ApplyHealth(Npc npc, Baseline baseline, EnemyDifficultyRank rank)
+        {
+            PropertyData hp = npc.m_ThingAttribute.GetProperty(AttributeName.HP);
+            float fraction = baseline.MaxHP <= 0f ? 1f : baseline.FillHP / baseline.MaxHP;
+            hp._Value = baseline.MaxHP * HealthMultiplier(rank);
+            hp._FillValue = hp.GetValue() * Mathf.Clamp01(fraction);
+        }
+
+        internal static void Update()
+        {
+            ClampLiveSettings();
+        }
+
+        private static void ClampLiveSettings()
+        {
+            if (Plugin.RegularEnemyHealthMultiplier == null) return;
+            Plugin.RegularEnemyHealthMultiplier.Value = Mathf.Clamp(Plugin.RegularEnemyHealthMultiplier.Value, 0.25f, 20f);
+            Plugin.RegularEnemyDamageMultiplier.Value = Mathf.Clamp(Plugin.RegularEnemyDamageMultiplier.Value, 0.25f, 10f);
+            Plugin.RegularEnemyMovementSpeedMultiplier.Value = Mathf.Clamp(Plugin.RegularEnemyMovementSpeedMultiplier.Value, 0.5f, 3f);
+            Plugin.EliteHealthMultiplier.Value = Mathf.Clamp(Plugin.EliteHealthMultiplier.Value, 0.25f, 20f);
+            Plugin.EliteDamageMultiplier.Value = Mathf.Clamp(Plugin.EliteDamageMultiplier.Value, 0.25f, 10f);
+            Plugin.BossHealthMultiplier.Value = Mathf.Clamp(Plugin.BossHealthMultiplier.Value, 0.25f, 20f);
+            Plugin.BossDamageMultiplier.Value = Mathf.Clamp(Plugin.BossDamageMultiplier.Value, 0.25f, 10f);
+        }
+
+        internal static bool TryGetDamageMultiplier(Thing attacker, out float multiplier, out EnemyDifficultyRank rank)
+        {
+            rank = GetRank(attacker);
+            multiplier = rank == EnemyDifficultyRank.Unsupported ? 1f : DamageMultiplier(rank);
+            return rank != EnemyDifficultyRank.Unsupported;
+        }
+    }
+
+    [HarmonyPatch(typeof(Npc), "OnInit")]
+    internal static class EnemyDifficultyNpcPatch
+    {
+        private static void Postfix(Npc __instance) { EnemyDifficultySystem.Initialize(__instance); CharacterSizeSystem.Apply(__instance); }
+    }
+
+    [HarmonyPatch(typeof(Npc), nameof(Npc.OnDestroy))]
+    internal static class CharacterSizeDestroyPatch
+    {
+        private static void Postfix(Npc __instance) { CharacterSizeSystem.Remove(__instance); }
+    }
+
+    [HarmonyPatch(typeof(MonsterBasicAI), nameof(MonsterBasicAI.Init))]
+    internal static class EnemyDifficultyMovementPatch
+    {
+        private static void Postfix(MonsterBasicAI __instance, Npc npc)
+        {
+            if (__instance == null || npc == null || EnemyDifficultySystem.GetRank(npc) != EnemyDifficultyRank.Regular) return;
+            object authoring = AccessTools.Field(typeof(MonsterBasicAI), "m_AgentAuthoring").GetValue(__instance);
+            if (authoring == null) return;
+            System.Reflection.PropertyInfo steeringProperty = AccessTools.Property(authoring.GetType(), "EntitySteering");
+            if (steeringProperty == null) return;
+            object steering = steeringProperty.GetValue(authoring, null);
+            System.Reflection.FieldInfo speed = AccessTools.Field(steering.GetType(), "Speed");
+            if (speed == null) return;
+            speed.SetValue(steering, npc.m_Attribute.MoveSpeed * Plugin.RegularEnemyMovementSpeedMultiplier.Value);
+            steeringProperty.SetValue(authoring, steering, null);
+        }
+    }
+
+    [HarmonyPatch(typeof(FightBody), nameof(FightBody.CalculationDamage))]
+    internal static class EnemyDifficultyDamagePatch
+    {
+        private static void Postfix(Thing fromthing, ref float __result)
+        {
+            float multiplier;
+            EnemyDifficultyRank rank;
+            if (!EnemyDifficultySystem.TryGetDamageMultiplier(fromthing, out multiplier, out rank) || __result <= 0f) return;
+            float native = __result;
+            __result *= multiplier;
+            if (Plugin.EnemyDifficultyDiagnostics.Value)
+                Plugin.ModLogger.LogInfo("Enemy damage: Attacker=" + fromthing.m_ID + " Rank=" + rank + " NativeDamage=" + native.ToString("F2") + " Multiplier=" + multiplier.ToString("F2") + " FinalDamage=" + __result.ToString("F2"));
+        }
+    }
+
+    internal static class CharacterSizeSystem
+    {
+        private sealed class State { public Npc Npc; public Transform View; public Transform Root; public Vector3 Scale; public Vector3 Position; public float LastMultiplier = -1f; public int RendererCount; public float RetryUntil; public float NextRetry; public bool FailureReported; }
+        private static readonly Dictionary<int, State> States = new Dictionary<int, State>();
+        private static readonly HashSet<string> HierarchyReports = new HashSet<string>();
+        private static readonly HashSet<string> ResolutionReports = new HashSet<string>();
+        private static int sceneHandle = int.MinValue;
+
+        internal static void Apply(Npc npc)
+        {
+            if (npc == null || npc.m_View == null || npc.m_View.ViewShow == null) return;
+            Transform view = npc.m_View.ViewShow;
+            State state;
+            if (!States.TryGetValue(npc.m_ID, out state) || state.View != view) { state = new State { Npc = npc, View = view, RetryUntil = Time.unscaledTime + 3f, NextRetry = 0f }; States[npc.m_ID] = state; }
+            Transform visual = state.Root;
+            if (visual == null || visual == null || !visual.gameObject.activeInHierarchy)
+            {
+                if (state.FailureReported) return;
+                if (Time.unscaledTime < state.NextRetry) return;
+                visual = ResolveVisualRoot(view);
+                state.NextRetry = Time.unscaledTime + 0.15f;
+                if (visual == null)
+                {
+                    if (Time.unscaledTime < state.RetryUntil) return;
+                    string reportKey = view.name + ":" + view.childCount;
+                    if (!state.FailureReported && Plugin.CharacterSizeDiagnostics.Value && HierarchyReports.Add(reportKey)) LogHierarchy(npc, view);
+                    state.FailureReported = true;
+                    return;
+                }
+                state.Root = visual;
+                state.Scale = visual.localScale;
+                state.Position = visual.localPosition;
+                state.RendererCount = view.GetComponentsInChildren<Renderer>(true).Length;
+                state.LastMultiplier = -1f;
+            }
+            float multiplier = npc.IsPlayerNpc ? Plugin.PlayerCharacterSizeMultiplier.Value : SizeMultiplier(EnemyDifficultySystem.GetRank(npc));
+            if (state.Root != null && Mathf.Approximately(state.LastMultiplier, multiplier)) return;
+            int rendererCount = view.GetComponentsInChildren<Renderer>(true).Length;
+            if (rendererCount != state.RendererCount) { state.Root = null; state.RendererCount = rendererCount; return; }
+            visual.localScale = state.Scale;
+            visual.localPosition = state.Position;
+            Bounds nativeBounds;
+            Bounds scaledBounds = default(Bounds);
+            bool hasBounds = TryGetBounds(visual, out nativeBounds);
+            visual.localScale = state.Scale * multiplier;
+            hasBounds = hasBounds && TryGetBounds(visual, out scaledBounds);
+            float lift = 0f;
+            if (hasBounds)
+            {
+                lift = nativeBounds.min.y - scaledBounds.min.y;
+                float parentScaleY = visual.parent == null ? 1f : Mathf.Abs(visual.parent.lossyScale.y);
+                visual.localPosition = state.Position + Vector3.up * (lift / Mathf.Max(parentScaleY, 0.0001f));
+            }
+            else visual.localPosition = state.Position;
+            string resolutionKey = visual.name + ":" + rendererCount;
+            if (Plugin.CharacterSizeDiagnostics.Value && !Mathf.Approximately(state.LastMultiplier, multiplier) && ResolutionReports.Add(resolutionKey))
+                Plugin.ModLogger.LogInfo("Character size: Npc=" + npc.m_ID + " Category=" + (npc.IsPlayerNpc ? "Player" : EnemyDifficultySystem.GetRank(npc).ToString()) + " VisualRoot=" + GetPath(visual) + " NativeScale=" + state.Scale + " Multiplier=" + multiplier.ToString("F2") + " AppliedScale=" + visual.localScale + " NativeBottomY=" + (hasBounds ? nativeBounds.min.y.ToString("F2") : "n/a") + " ScaledBottomY=" + (hasBounds ? scaledBounds.min.y.ToString("F2") : "n/a") + " VisualLift=" + lift.ToString("F2") + " GameplayRootScale=" + npc.m_View.transform.localScale + " ColliderChanged=False NavMeshChanged=False");
+            state.LastMultiplier = multiplier;
+        }
+
+        private static float SizeMultiplier(EnemyDifficultyRank rank) { if (rank == EnemyDifficultyRank.Elite) return Plugin.EliteSizeMultiplier.Value; if (rank == EnemyDifficultyRank.Boss) return Plugin.BossSizeMultiplier.Value; if (rank == EnemyDifficultyRank.Regular) return Plugin.RegularEnemySizeMultiplier.Value; return 1f; }
+
+        internal static void Update()
+        {
+            int currentScene = SceneManager.GetActiveScene().handle;
+            if (currentScene != sceneHandle) { States.Clear(); sceneHandle = currentScene; }
+            foreach (State state in States.Values) if (state.Npc != null) Apply(state.Npc);
+        }
+
+        internal static void Remove(Npc npc) { if (npc != null) States.Remove(npc.m_ID); }
+
+        private static Transform ResolveVisualRoot(Transform view)
+        {
+            Renderer[] renderers = view.GetComponentsInChildren<Renderer>(true).Where(IsCharacterRenderer).ToArray();
+            if (renderers.Length == 0) return null;
+            Transform animator = FindComponentTransform(view, "UnityEngine.Animator");
+            Transform common = renderers[0].transform;
+            for (int i = 1; i < renderers.Length; i++) common = CommonAncestor(common, renderers[i].transform, view);
+            if (IsSafe(common) && common != view) return common;
+            if (animator != null && IsSafe(animator) && CountRenderers(animator) > 0) return animator;
+            Transform[] all = view.GetComponentsInChildren<Transform>(true);
+            Transform best = null;
+            int bestCount = 0;
+            for (int i = 0; i < all.Length; i++) { int count = CountRenderers(all[i]); if (all[i] != view && count > bestCount && IsSafe(all[i])) { best = all[i]; bestCount = count; } }
+            return best;
+        }
+
+        private static bool IsCharacterRenderer(Renderer renderer) { return renderer != null && !(renderer is ParticleSystemRenderer) && !HasAncestorComponent(renderer.transform, "UnityEngine.Canvas"); }
+        private static int CountRenderers(Transform root) { return root.GetComponentsInChildren<Renderer>(true).Count(IsCharacterRenderer); }
+        private static Transform CommonAncestor(Transform a, Transform b, Transform stop) { Transform current = a; while (current != null) { Transform probe = b; while (probe != null) { if (probe == current) return current; if (probe == stop) break; probe = probe.parent; } if (current == stop) break; current = current.parent; } return stop; }
+
+        private static bool IsSafe(Transform candidate)
+        {
+            if (candidate == null || candidate.GetComponentsInChildren<Collider>(true).Length > 0 || candidate.GetComponentsInChildren<CharacterController>(true).Length > 0 || HasAncestorComponent(candidate, "UnityEngine.AI.NavMeshAgent") || HasDescendantComponent(candidate, "ProjectDawn.Navigation.AgentAuthoring")) return false;
+            return candidate.GetComponentsInChildren<Renderer>(true).Length > 0;
+        }
+
+        private static void LogHierarchy(Npc npc, Transform view)
+        {
+            Renderer[] renderers = view.GetComponentsInChildren<Renderer>(true);
+            List<string> skinned = new List<string>();
+            List<string> mesh = new List<string>();
+            for (int i = 0; i < renderers.Length; i++) { string path = GetPath(renderers[i].transform); if (renderers[i] is SkinnedMeshRenderer) skinned.Add(path); else if (renderers[i] is MeshRenderer) mesh.Add(path); }
+            Transform animator = FindComponentTransform(view, "UnityEngine.Animator");
+            Plugin.ModLogger.LogInfo("Character hierarchy: Npc=" + npc.m_ID + " NpcRoot=" + GetPath(view) + " RootComponents=[" + string.Join(",", view.GetComponents<Component>().Select(x => x.GetType().Name).ToArray()) + "] ChildCount=" + view.childCount + " AnimatorPath=" + (animator == null ? "none" : GetPath(animator)) + " RendererCount=" + renderers.Length + " SkinnedRendererPaths=[" + string.Join(";", skinned.Take(12).ToArray()) + "] MeshRendererPaths=[" + string.Join(";", mesh.Take(12).ToArray()) + "] CandidateAncestors=runtime-common-ancestor");
+        }
+
+        private static bool TryGetBounds(Transform root, out Bounds bounds)
+        {
+            Renderer[] renderers = root.GetComponentsInChildren<Renderer>(true);
+            if (renderers.Length == 0) { bounds = default(Bounds); return false; }
+            bounds = renderers[0].bounds;
+            for (int i = 1; i < renderers.Length; i++) bounds.Encapsulate(renderers[i].bounds);
+            return true;
+        }
+
+        private static Transform FindComponentTransform(Transform root, string fullName)
+        {
+            Component[] components = root.GetComponentsInChildren<Component>(true);
+            for (int i = 0; i < components.Length; i++) if (components[i] != null && components[i].GetType().FullName == fullName) return components[i].transform;
+            return null;
+        }
+
+        private static bool HasAncestorComponent(Transform current, string fullName)
+        {
+            while (current != null)
+            {
+                Component[] components = current.GetComponents<Component>();
+                for (int i = 0; i < components.Length; i++) if (components[i] != null && components[i].GetType().FullName == fullName) return true;
+                current = current.parent;
+            }
+            return false;
+        }
+
+        private static bool HasDescendantComponent(Transform root, string fullName)
+        {
+            Component[] components = root.GetComponentsInChildren<Component>(true);
+            for (int i = 0; i < components.Length; i++) if (components[i] != null && components[i].GetType().FullName == fullName) return true;
+            return false;
+        }
+
+        private static string GetPath(Transform transform) { string path = transform.name; while (transform.parent != null) { transform = transform.parent; path = transform.name + "/" + path; } return path; }
     }
 }
