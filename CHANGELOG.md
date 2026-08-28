@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.12.0
+
+- Removed experimental Character Size controls because runtime model scaling was not reliable.
+- Removed experimental enemy health, damage, and movement difficulty scaling; native enemy stats are restored.
+- Preserved Enemy Density at 1x-15x.
+- Added Extended Map Visibility to reduce culling outside the native camera envelope.
+
 ## 0.11.3
 
 - Fixed active BepInEx plugin metadata to report version 0.11.3.

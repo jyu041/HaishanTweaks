@@ -1,4 +1,4 @@
-# HaishanTweaks v0.11.3
+# HaishanTweaks v0.12.0
 
 HaishanTweaks is an unofficial BepInEx 5 mod for 《海山：昆仑镜》 (Mirror of Heaven). It is intended for the game's single-player gameplay.
 
@@ -25,12 +25,6 @@ HaishanTweaks is an unofficial BepInEx 5 mod for 《海山：昆仑镜》 (Mirro
 ### Enemies
 
 - Enemy Density from 1x to 15x for ordinary combat-room enemies
-- Separate regular, elite, and boss health and outgoing damage multipliers
-- Regular enemy locomotion speed multiplier
-- Visual-only player, regular enemy, elite, and boss size controls from 0.50x to 3.00x
-- Hide Zoom Occluders fallback for large environment meshes without useful colliders
-- Infinite Health also blocks HP-cost and sacrifice-style skill resource reductions
-- Floor-safe zoom occluder filtering protects walkable ground from fallback hiding
 - Native encounter registration, AI initialization, death handling, and rewards are preserved
 - Bosses, elites, special rooms, plot encounters, summons, companions, and mixed or unknown pools remain native
 - Values above 3x display a performance warning
@@ -60,8 +54,11 @@ Progression actions can permanently change a save. Back up saves before using th
 - Reduce Fog When Zoomed Out
 - Reduce Blur When Zoomed Out
 - Hide Zoom Occluders
+- Extended Map Visibility
 
 The blur option reduces the game's Depth of Field effect. It does not disable all post-processing.
+
+Infinite Health also blocks HP-cost and sacrifice-style skill resource reductions. Hide Zoom Occluders uses conservative floor and textured-environment protection.
 
 ### UI
 
@@ -98,15 +95,13 @@ The plugin GUID is `com.jerry.haishantweaks`. Settings persist through BepInEx c
 
 `EnemyDensityMultiplier` defaults to 1 and affects future ordinary encounter spawns only. Higher density may increase experience, currency, and drops because additional enemies are native enemy instances. Above 3x, 8x, and 12x the menu displays progressively stronger performance warnings.
 
-Enemy difficulty settings affect hostile `UnitRank.None`, `UnitRank.Elite`, and `UnitRank.Boss` Npcs per instance. Health changes apply to newly initialized Npcs and preserve native current-HP fractions. Damage scaling is applied once at the native `FightBody.CalculationDamage` result for enemy-owned calculated damage. Regular movement uses the native `AgentAuthoring.EntitySteering.Speed` value.
-
-Character Size changes visual model subtrees only. Gameplay roots, colliders, navigation, attack origins, camera targets, and ability anchors are not changed. Models without a safely separable visual root remain at native size.
-
 Hide Zoom Occluders is enabled by default and activates only above 1.25x camera distance during normal gameplay follow. It tests cached environment `MeshRenderer` world bounds against the camera-to-player segment and temporarily uses `ShadowsOnly`, falling back to disabling the renderer. Infinite Health blocks negative current-HP fill changes as well as ordinary damage while allowing positive healing and native max-HP changes.
 
 The zoom fallback ignores intersections within 2 world units of the target and protects the current floor from both the renderer-bounds and extended collider paths using vertical ground classification and a small downward ground raycast. Roofs and walls above or between the camera and player remain eligible for hiding.
 
 Renderer-only fallback now protects ordinary textured environment materials. It is reserved for untextured, large, thin, light/simple meshes likely to be the zoom-exposed blocker; native `_Dither` handling remains authoritative where available.
+
+Extended Map Visibility is enabled by default and activates only above 1.25x during normal gameplay follow. It disables unsafe baked occlusion for the modded camera envelope and proportionally extends the native far clip and non-UI layer cull distances. Native values are restored at normal zoom and during scripted or cinematic camera use.
 
 ## Compatibility / Warnings
 

@@ -15,7 +15,7 @@ namespace HaishanTweaks
     {
         public const string PluginGuid = "com.jerry.haishantweaks";
         public const string PluginName = "HaishanTweaks";
-        public const string PluginVersion = "0.11.3";
+        public const string PluginVersion = "0.12.0";
 
         internal static ConfigEntry<bool> InfiniteHealth;
         internal static ConfigEntry<bool> InfiniteMP;
@@ -32,24 +32,13 @@ namespace HaishanTweaks
         internal static ConfigEntry<float> MultishotDelaySeconds;
         internal static ConfigEntry<int> EnemyDensityMultiplier;
         internal static ConfigEntry<bool> EnemyDiagnostics;
-        internal static ConfigEntry<float> RegularEnemyHealthMultiplier;
-        internal static ConfigEntry<float> RegularEnemyDamageMultiplier;
-        internal static ConfigEntry<float> RegularEnemyMovementSpeedMultiplier;
-        internal static ConfigEntry<float> EliteHealthMultiplier;
-        internal static ConfigEntry<float> EliteDamageMultiplier;
-        internal static ConfigEntry<float> BossHealthMultiplier;
-        internal static ConfigEntry<float> BossDamageMultiplier;
-        internal static ConfigEntry<float> PlayerCharacterSizeMultiplier;
-        internal static ConfigEntry<float> RegularEnemySizeMultiplier;
-        internal static ConfigEntry<float> EliteSizeMultiplier;
-        internal static ConfigEntry<float> BossSizeMultiplier;
-        internal static ConfigEntry<bool> EnemyDifficultyDiagnostics;
-        internal static ConfigEntry<bool> CharacterSizeDiagnostics;
         internal static ConfigEntry<bool> CameraGeometryDiagnostics;
         internal static ConfigEntry<float> CameraDistanceMultiplier;
         internal static ConfigEntry<bool> ReduceFogWhenZoomedOut;
         internal static ConfigEntry<bool> ReduceBlurWhenZoomedOut;
         internal static ConfigEntry<bool> HideZoomOccluders;
+        internal static ConfigEntry<bool> ExtendedMapVisibility;
+        internal static ConfigEntry<bool> CameraVisibilityDiagnostics;
         internal static ConfigEntry<bool> AllowHighRankStartingSkills;
         internal static ConfigEntry<bool> AllowHighRankStartingEntries;
         internal static float RuntimeDamageMultiplier;
@@ -106,25 +95,13 @@ namespace HaishanTweaks
             EnemyDensityMultiplier = Config.Bind("Enemies", "EnemyDensityMultiplier", 1, "Ordinary combat enemy density multiplier (1-15). Bosses, elites, and scripted enemies remain native.");
             EnemyDensityMultiplier.Value = Mathf.Clamp(EnemyDensityMultiplier.Value, 1, 15);
             EnemyDiagnostics = Config.Bind("Enemies", "EnemyDiagnostics", false, "Log ordinary enemy density decisions.");
-            RegularEnemyHealthMultiplier = Config.Bind("Enemies", "RegularEnemyHealthMultiplier", 1f, "Regular enemy health multiplier (0.25-20.00)." );
-            RegularEnemyDamageMultiplier = Config.Bind("Enemies", "RegularEnemyDamageMultiplier", 1f, "Regular enemy outgoing damage multiplier (0.25-10.00)." );
-            RegularEnemyMovementSpeedMultiplier = Config.Bind("Enemies", "RegularEnemyMovementSpeedMultiplier", 1f, "Regular enemy locomotion multiplier (0.50-3.00)." );
-            EliteHealthMultiplier = Config.Bind("Enemies", "EliteHealthMultiplier", 1f, "Elite health multiplier (0.25-20.00)." );
-            EliteDamageMultiplier = Config.Bind("Enemies", "EliteDamageMultiplier", 1f, "Elite outgoing damage multiplier (0.25-10.00)." );
-            BossHealthMultiplier = Config.Bind("Enemies", "BossHealthMultiplier", 1f, "Boss health multiplier (0.25-20.00)." );
-            BossDamageMultiplier = Config.Bind("Enemies", "BossDamageMultiplier", 1f, "Boss outgoing damage multiplier (0.25-10.00)." );
-            PlayerCharacterSizeMultiplier = Config.Bind("CharacterSize", "PlayerCharacterSizeMultiplier", 1f, "Player visual model size multiplier (0.50-3.00)." );
-            RegularEnemySizeMultiplier = Config.Bind("CharacterSize", "RegularEnemySizeMultiplier", 1f, "Regular enemy visual model size multiplier (0.50-3.00)." );
-            EliteSizeMultiplier = Config.Bind("CharacterSize", "EliteSizeMultiplier", 1f, "Elite visual model size multiplier (0.50-3.00)." );
-            BossSizeMultiplier = Config.Bind("CharacterSize", "BossSizeMultiplier", 1f, "Boss visual model size multiplier (0.50-3.00)." );
-            EnemyDifficultyDiagnostics = Config.Bind("Enemies", "EnemyDifficultyDiagnostics", false, "Log one enemy difficulty record per initialization and damage event." );
-            CharacterSizeDiagnostics = Config.Bind("CharacterSize", "CharacterSizeDiagnostics", false, "Log character visual-root scaling records." );
-            ClampEnemyConfigs();
             CameraGeometryDiagnostics = Config.Bind("Camera", "CameraGeometryDiagnostics", false, "Log scene renderers encountered by extended zoom obstruction checks.");
             CameraDistanceMultiplier = Config.Bind("Camera", "CameraDistanceMultiplier", 1f, "Normal player-follow camera distance multiplier.");
             ReduceFogWhenZoomedOut = Config.Bind("Camera", "ReduceFogWhenZoomedOut", true, "Reduce Unity RenderSettings fog when the camera is zoomed out.");
             ReduceBlurWhenZoomedOut = Config.Bind("Camera", "ReduceBlurWhenZoomedOut", true, "Reduce the camera DepthOfField effect when zoomed out.");
             HideZoomOccluders = Config.Bind("Camera", "HideZoomOccluders", true, "Hide environment meshes blocking the camera when zoomed beyond 1.25x.");
+            ExtendedMapVisibility = Config.Bind("Camera", "ExtendedMapVisibility", true, "Reduce environment culling caused by camera distances beyond the native camera envelope.");
+            CameraVisibilityDiagnostics = Config.Bind("Camera", "CameraVisibilityDiagnostics", false, "Log camera visibility state changes and bounded environment candidates.");
             AllowHighRankStartingSkills = Config.Bind("RunStart", "AllowHighRankStartingSkills", false, "Allow unlocked, discovered skills of any rank as starting skills.");
             AllowHighRankStartingEntries = Config.Bind("RunStart", "AllowHighRankStartingEntries", false, "Allow unlocked, discovered entries of any rank as starting entries.");
             toggleKey = Config.Bind("GUI", "ToggleKey", new KeyboardShortcut(KeyCode.F10), "Show or hide the HaishanTweaks window.");
@@ -140,7 +117,7 @@ namespace HaishanTweaks
             RuntimeAbilityRangeMultiplier = AbilityRangeMultiplier.Value;
             RuntimeCameraDistanceMultiplier = CameraDistanceMultiplier.Value;
 
-            Logger.LogInfo("HaishanTweaks 0.11.3 loaded");
+            Logger.LogInfo("HaishanTweaks 0.12.0 loaded");
             Logger.LogInfo("Infinite Health: " + OnOff(InfiniteHealth.Value));
             Logger.LogInfo("Infinite MP: " + OnOff(InfiniteMP.Value));
             Logger.LogInfo("No Skill Cooldowns: " + OnOff(NoSkillCooldowns.Value));
@@ -158,24 +135,18 @@ namespace HaishanTweaks
         private void Update()
         {
             PlayerMultishot.Update();
-            EnemyDifficultySystem.Update();
-            CharacterSizeSystem.Update();
             if (toggleKey.Value.IsDown())
             {
                 SetMenuVisible(!menuVisible);
             }
         }
 
-        private void LateUpdate()
-        {
-            CharacterSizeSystem.ReapplyOverwrittenScales();
-        }
 
         private void OnGUI()
         {
             if (menuVisible)
             {
-                windowRect = GUI.Window(84321, windowRect, DrawWindow, "HaishanTweaks v0.11.3");
+                windowRect = GUI.Window(84321, windowRect, DrawWindow, "HaishanTweaks v0.12.0");
                 if (sliderDirty && Event.current.type == EventType.MouseUp)
                 {
                     CommitSliders();
@@ -236,6 +207,7 @@ namespace HaishanTweaks
             DrawToggle("Reduce Fog When Zoomed Out", ReduceFogWhenZoomedOut);
             DrawToggle("Reduce Blur When Zoomed Out", ReduceBlurWhenZoomedOut);
             DrawToggle("Hide Zoom Occluders", HideZoomOccluders);
+            DrawToggle("Extended Map Visibility", ExtendedMapVisibility);
         }
 
         private void DrawCombatTab()
@@ -259,7 +231,6 @@ namespace HaishanTweaks
                 RuntimeAbilityRangeMultiplier = 1f;
                 ProjectileCountMultiplier.Value = 1;
                 MultishotDelaySeconds.Value = 0.025f;
-                EnemyDensityMultiplier.Value = 1;
                 sliderDirty = true;
                 Config.Save();
             }
@@ -271,64 +242,8 @@ namespace HaishanTweaks
             GUILayout.Space(8f);
             GUILayout.Label("ENEMIES");
             DrawEnemyDensity();
-            DrawEnemyDifficultySlider("Regular Enemy Health", RegularEnemyHealthMultiplier, 0.25f, 20f);
-            DrawEnemyDifficultySlider("Regular Enemy Damage", RegularEnemyDamageMultiplier, 0.25f, 10f);
-            DrawEnemyDifficultySlider("Regular Enemy Movement Speed", RegularEnemyMovementSpeedMultiplier, 0.5f, 3f);
-            DrawEnemyDifficultySlider("Elite Health", EliteHealthMultiplier, 0.25f, 20f);
-            DrawEnemyDifficultySlider("Elite Damage", EliteDamageMultiplier, 0.25f, 10f);
-            DrawEnemyDifficultySlider("Boss Health", BossHealthMultiplier, 0.25f, 20f);
-            DrawEnemyDifficultySlider("Boss Damage", BossDamageMultiplier, 0.25f, 10f);
-            DrawToggle("Enemy Difficulty Diagnostics", EnemyDifficultyDiagnostics);
-            GUILayout.Space(8f);
-            GUILayout.Label("CHARACTER SIZE");
-            DrawCharacterSizeSlider("Player Character Size", PlayerCharacterSizeMultiplier);
-            DrawCharacterSizeSlider("Regular Enemy Size", RegularEnemySizeMultiplier);
-            DrawCharacterSizeSlider("Elite Size", EliteSizeMultiplier);
-            DrawCharacterSizeSlider("Boss Size", BossSizeMultiplier);
-            DrawToggle("Character Size Diagnostics", CharacterSizeDiagnostics);
-            if (GUILayout.Button("Reset Enemy Difficulty and Character Size")) ResetEnemyDifficultyAndSize();
+            if (GUILayout.Button("Reset Enemy Density")) { EnemyDensityMultiplier.Value = 1; Config.Save(); }
             GUILayout.EndScrollView();
-        }
-
-        private static void ClampEnemyConfigs()
-        {
-            RegularEnemyHealthMultiplier.Value = Mathf.Clamp(RegularEnemyHealthMultiplier.Value, 0.25f, 20f);
-            RegularEnemyDamageMultiplier.Value = Mathf.Clamp(RegularEnemyDamageMultiplier.Value, 0.25f, 10f);
-            RegularEnemyMovementSpeedMultiplier.Value = Mathf.Clamp(RegularEnemyMovementSpeedMultiplier.Value, 0.5f, 3f);
-            EliteHealthMultiplier.Value = Mathf.Clamp(EliteHealthMultiplier.Value, 0.25f, 20f);
-            EliteDamageMultiplier.Value = Mathf.Clamp(EliteDamageMultiplier.Value, 0.25f, 10f);
-            BossHealthMultiplier.Value = Mathf.Clamp(BossHealthMultiplier.Value, 0.25f, 20f);
-            BossDamageMultiplier.Value = Mathf.Clamp(BossDamageMultiplier.Value, 0.25f, 10f);
-            PlayerCharacterSizeMultiplier.Value = Mathf.Clamp(PlayerCharacterSizeMultiplier.Value, 0.5f, 3f);
-            RegularEnemySizeMultiplier.Value = Mathf.Clamp(RegularEnemySizeMultiplier.Value, 0.5f, 3f);
-            EliteSizeMultiplier.Value = Mathf.Clamp(EliteSizeMultiplier.Value, 0.5f, 3f);
-            BossSizeMultiplier.Value = Mathf.Clamp(BossSizeMultiplier.Value, 0.5f, 3f);
-        }
-
-        private void DrawEnemyDifficultySlider(string label, ConfigEntry<float> entry, float min, float max)
-        {
-            float value = Mathf.Clamp(entry.Value, min, max);
-            float next = Mathf.Clamp(GUILayout.HorizontalSlider(value, min, max), min, max);
-            next = Mathf.Round(next / 0.05f) * 0.05f;
-            if (!Mathf.Approximately(next, value)) { entry.Value = next; sliderDirty = true; }
-            GUILayout.Label(label + ": " + value.ToString("F2") + "x");
-        }
-
-        private void DrawCharacterSizeSlider(string label, ConfigEntry<float> entry)
-        {
-            float value = Mathf.Clamp(entry.Value, 0.5f, 3f);
-            float next = Mathf.Clamp(GUILayout.HorizontalSlider(value, 0.5f, 3f), 0.5f, 3f);
-            next = Mathf.Round(next / 0.05f) * 0.05f;
-            if (!Mathf.Approximately(next, value)) { entry.Value = next; sliderDirty = true; }
-            GUILayout.Label(label + ": " + value.ToString("F2") + "x");
-        }
-
-        private void ResetEnemyDifficultyAndSize()
-        {
-            RegularEnemyHealthMultiplier.Value = RegularEnemyDamageMultiplier.Value = RegularEnemyMovementSpeedMultiplier.Value = 1f;
-            EliteHealthMultiplier.Value = EliteDamageMultiplier.Value = BossHealthMultiplier.Value = BossDamageMultiplier.Value = 1f;
-            PlayerCharacterSizeMultiplier.Value = RegularEnemySizeMultiplier.Value = EliteSizeMultiplier.Value = BossSizeMultiplier.Value = 1f;
-            Config.Save();
         }
 
         private void DrawEnemyDensity()
@@ -901,6 +816,7 @@ namespace HaishanTweaks
             if (menuVisible) SetMenuVisible(false);
             FogController.RestoreNative();
             BlurController.RestoreNative();
+            MapVisibilityController.RestoreNative();
             ZoomGeometryCleanup.RestoreNative();
             if (harmony != null) harmony.UnpatchSelf();
         }
@@ -1644,6 +1560,7 @@ namespace HaishanTweaks
         {
             FogController.Update();
             BlurController.Update(__instance);
+            MapVisibilityController.Update(__instance);
             ZoomGeometryCleanup.Update(__instance);
         }
     }
@@ -1762,6 +1679,67 @@ namespace HaishanTweaks
             float targetDistance = baselineDistance * Plugin.RuntimeCameraDistanceMultiplier;
             Vector3 desired = point.transform.position + nativeVector / nativeDistance * targetDistance;
             camera.m_Camera.transform.position = desired;
+        }
+    }
+
+    internal static class MapVisibilityController
+    {
+        private sealed class State
+        {
+            internal Camera Camera;
+            internal int SceneHandle;
+            internal bool NativeOcclusion;
+            internal float NativeFarClip;
+            internal float[] NativeLayerCullDistances;
+            internal bool Applied;
+        }
+
+        private static State state;
+
+        internal static void Update(CameraManager manager)
+        {
+            Camera camera = manager == null ? null : manager.m_Camera;
+            int scene = SceneManager.GetActiveScene().handle;
+            bool active = camera != null && Plugin.ExtendedMapVisibility.Value && Plugin.RuntimeCameraDistanceMultiplier > 1.25f && CameraDistanceScope.IsNormalFollow(manager);
+            if (!active)
+            {
+                RestoreNative();
+                return;
+            }
+            if (state == null || state.Camera != camera || state.SceneHandle != scene)
+            {
+                RestoreNative();
+                state = new State { Camera = camera, SceneHandle = scene, NativeOcclusion = camera.useOcclusionCulling, NativeFarClip = camera.farClipPlane, NativeLayerCullDistances = camera.layerCullDistances };
+            }
+            if (!state.Applied)
+            {
+                camera.useOcclusionCulling = false;
+                camera.farClipPlane = Mathf.Max(state.NativeFarClip, state.NativeFarClip * Plugin.RuntimeCameraDistanceMultiplier);
+                float[] distances = state.NativeLayerCullDistances == null ? null : (float[])state.NativeLayerCullDistances.Clone();
+                int adjusted = 0;
+                if (distances != null)
+                {
+                    int uiLayer = LayerMask.NameToLayer("UI");
+                    for (int i = 0; i < distances.Length; i++) if (distances[i] > 0f && i != uiLayer) { distances[i] = state.NativeLayerCullDistances[i] * Plugin.RuntimeCameraDistanceMultiplier; adjusted++; }
+                    camera.layerCullDistances = distances;
+                }
+                state.Applied = true;
+                if (Plugin.CameraVisibilityDiagnostics.Value)
+                    Plugin.ModLogger.LogInfo("Extended visibility: Scene=" + SceneManager.GetActiveScene().name + " Multiplier=" + Plugin.RuntimeCameraDistanceMultiplier.ToString("F2") + " NativeFarClip=" + state.NativeFarClip.ToString("F2") + " AppliedFarClip=" + camera.farClipPlane.ToString("F2") + " NativeOcclusionCulling=" + state.NativeOcclusion + " AppliedOcclusionCulling=" + camera.useOcclusionCulling + " LayerCullAdjusted=" + adjusted + " LODAdjusted=False");
+            }
+        }
+
+        internal static void RestoreNative()
+        {
+            if (state == null) return;
+            if (state.Camera != null)
+            {
+                state.Camera.useOcclusionCulling = state.NativeOcclusion;
+                state.Camera.farClipPlane = state.NativeFarClip;
+                if (state.NativeLayerCullDistances != null) state.Camera.layerCullDistances = (float[])state.NativeLayerCullDistances.Clone();
+            }
+            if (state.Applied && Plugin.CameraVisibilityDiagnostics.Value) Plugin.ModLogger.LogInfo("Extended visibility restored: Scene=" + SceneManager.GetActiveScene().name);
+            state = null;
         }
     }
 
@@ -2966,6 +2944,7 @@ namespace HaishanTweaks
         }
     }
 
+    #if false
     internal enum EnemyDifficultyRank
     {
         Regular,
@@ -3289,4 +3268,5 @@ namespace HaishanTweaks
 
         private static string GetPath(Transform transform) { string path = transform.name; while (transform.parent != null) { transform = transform.parent; path = transform.name + "/" + path; } return path; }
     }
+    #endif
 }
