@@ -22,6 +22,15 @@ HaishanTweaks is an unofficial BepInEx 5 mod for 《海山：昆仑镜》 (Mirro
 - Visual vertical compensation for enlarged attached/forward effects
 - Optional ability scaling diagnostics
 
+### Enemies
+
+- Enemy Density from 1x to 15x for ordinary combat-room enemies
+- Native encounter registration, AI initialization, death handling, and rewards are preserved
+- Bosses, elites, special rooms, plot encounters, summons, companions, and mixed or unknown pools remain native
+- Values above 3x display a performance warning
+
+The Enemy Density control is shown in the scrollable Combat menu under `ENEMIES`.
+
 ### Starting Build / Progression
 
 - Select, reorder, remove, or add starting skills
@@ -52,6 +61,7 @@ The blur option reduces the game's Depth of Field effect. It does not disable al
 - Press `F10` to open or close HaishanTweaks.
 - Settings persist through BepInEx configuration.
 - The UI provides player, combat, run-start, currency, progression, and artifact controls.
+- The Combat menu includes a scrollable `ENEMIES` section for Enemy Density.
 - Ability size and range support values from 0.5x to 20x; extreme values may cause visual or performance issues.
 
 ## Installation
@@ -78,6 +88,8 @@ BepInEx generates the configuration file at:
 `BepInEx\config\com.jerry.haishantweaks.cfg`
 
 The plugin GUID is `com.jerry.haishantweaks`. Settings persist through BepInEx configuration. The vertical visual compensation setting defaults to 25% of measured downward growth and is capped at 1 world unit. `MultishotDelaySeconds` defaults to 0.025 seconds; setting it to zero restores simultaneous extra-projectile spawning.
+
+`EnemyDensityMultiplier` defaults to 1 and affects future ordinary encounter spawns only. Higher density may increase experience, currency, and drops because additional enemies are native enemy instances. Above 3x, 8x, and 12x the menu displays progressively stronger performance warnings.
 
 ## Compatibility / Warnings
 

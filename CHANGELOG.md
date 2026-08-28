@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.10.2
+
+- Increased Enemy Density from 1x-5x to 1x-15x.
+- Added stronger performance warnings above 3x, 8x, and 12x.
+- Added conservative SkillBox coverage diagnostics; persistent attached hitboxes remain native.
+- Added renderer-level fallback handling for zoomed-out obstruction hits that cannot use `_Dither`.
+
+## 0.10.1
+
+- Fixed Enemy Density visibility by adding a scrollable Combat menu and explicit `ENEMIES` section.
+- Added coverage diagnostics for SkillBox-based player-attached hitboxes without treating them as projectiles.
+- Extended zoom obstruction handling to the actual modded camera-to-player cast using the game's `_Dither` material convention.
+- Added scene-aware restoration and optional zoom geometry diagnostics.
+
+## 0.10.0
+
+- Added conservative Enemy Density from 1x to 5x for ordinary combat-room enemy rules.
+- Preserved native enemy initialization and room/wave registration.
+- Excluded bosses, elites, scripted/special encounters, and mixed or unknown pools.
+
 ## 0.9.1
 
 - Added optional non-blocking staggered spawning for additional player projectiles.

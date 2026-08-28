@@ -15,7 +15,7 @@ namespace HaishanTweaks
     {
         public const string PluginGuid = "com.jerry.haishantweaks";
         public const string PluginName = "HaishanTweaks";
-        public const string PluginVersion = "0.9.1";
+        public const string PluginVersion = "0.10.2";
 
         internal static ConfigEntry<bool> InfiniteHealth;
         internal static ConfigEntry<bool> InfiniteMP;
@@ -30,6 +30,9 @@ namespace HaishanTweaks
         internal static ConfigEntry<float> AbilityVerticalCompensation;
         internal static ConfigEntry<int> ProjectileCountMultiplier;
         internal static ConfigEntry<float> MultishotDelaySeconds;
+        internal static ConfigEntry<int> EnemyDensityMultiplier;
+        internal static ConfigEntry<bool> EnemyDiagnostics;
+        internal static ConfigEntry<bool> CameraGeometryDiagnostics;
         internal static ConfigEntry<float> CameraDistanceMultiplier;
         internal static ConfigEntry<bool> ReduceFogWhenZoomedOut;
         internal static ConfigEntry<bool> ReduceBlurWhenZoomedOut;
@@ -47,6 +50,7 @@ namespace HaishanTweaks
         private Vector2 runStartScroll;
         private Vector2 currencyScroll;
         private Vector2 artifactScrollPosition;
+        private Vector2 combatScrollPosition;
         private bool menuVisible;
         private bool sliderDirty;
         private bool confirmSkills;
@@ -85,6 +89,10 @@ namespace HaishanTweaks
             ProjectileCountMultiplier.Value = Mathf.Clamp(ProjectileCountMultiplier.Value, 1, 10);
             MultishotDelaySeconds = Config.Bind("Combat", "MultishotDelaySeconds", 0.025f, "Delay between additional player projectiles in seconds (0-0.1).");
             MultishotDelaySeconds.Value = Mathf.Clamp(MultishotDelaySeconds.Value, 0f, 0.1f);
+            EnemyDensityMultiplier = Config.Bind("Enemies", "EnemyDensityMultiplier", 1, "Ordinary combat enemy density multiplier (1-15). Bosses, elites, and scripted enemies remain native.");
+            EnemyDensityMultiplier.Value = Mathf.Clamp(EnemyDensityMultiplier.Value, 1, 15);
+            EnemyDiagnostics = Config.Bind("Enemies", "EnemyDiagnostics", false, "Log ordinary enemy density decisions.");
+            CameraGeometryDiagnostics = Config.Bind("Camera", "CameraGeometryDiagnostics", false, "Log scene renderers encountered by extended zoom obstruction checks.");
             CameraDistanceMultiplier = Config.Bind("Camera", "CameraDistanceMultiplier", 1f, "Normal player-follow camera distance multiplier.");
             ReduceFogWhenZoomedOut = Config.Bind("Camera", "ReduceFogWhenZoomedOut", true, "Reduce Unity RenderSettings fog when the camera is zoomed out.");
             ReduceBlurWhenZoomedOut = Config.Bind("Camera", "ReduceBlurWhenZoomedOut", true, "Reduce the camera DepthOfField effect when zoomed out.");
@@ -103,7 +111,7 @@ namespace HaishanTweaks
             RuntimeAbilityRangeMultiplier = AbilityRangeMultiplier.Value;
             RuntimeCameraDistanceMultiplier = CameraDistanceMultiplier.Value;
 
-            Logger.LogInfo("HaishanTweaks 0.9.1 loaded");
+            Logger.LogInfo("HaishanTweaks 0.10.2 loaded");
             Logger.LogInfo("Infinite Health: " + OnOff(InfiniteHealth.Value));
             Logger.LogInfo("Infinite MP: " + OnOff(InfiniteMP.Value));
             Logger.LogInfo("No Skill Cooldowns: " + OnOff(NoSkillCooldowns.Value));
@@ -131,7 +139,7 @@ namespace HaishanTweaks
         {
             if (menuVisible)
             {
-                windowRect = GUI.Window(84321, windowRect, DrawWindow, "HaishanTweaks v0.9.1");
+                windowRect = GUI.Window(84321, windowRect, DrawWindow, "HaishanTweaks v0.10.2");
                 if (sliderDirty && Event.current.type == EventType.MouseUp)
                 {
                     CommitSliders();
@@ -195,6 +203,7 @@ namespace HaishanTweaks
 
         private void DrawCombatTab()
         {
+            combatScrollPosition = GUILayout.BeginScrollView(combatScrollPosition, GUILayout.Height(570f));
             GUILayout.Label("COMBAT");
             DrawToggle("No Skill Cooldowns", NoSkillCooldowns);
             GUILayout.Space(8f);
@@ -213,6 +222,7 @@ namespace HaishanTweaks
                 RuntimeAbilityRangeMultiplier = 1f;
                 ProjectileCountMultiplier.Value = 1;
                 MultishotDelaySeconds.Value = 0.025f;
+                EnemyDensityMultiplier.Value = 1;
                 sliderDirty = true;
                 Config.Save();
             }
@@ -221,6 +231,26 @@ namespace HaishanTweaks
             GUILayout.Label("Standard SkillBox / projectile effects are supported. Some custom passive/artifact effects may use independent range logic.");
             if (RuntimeAbilitySizeMultiplier > 5f || RuntimeAbilityRangeMultiplier > 5f)
                 GUILayout.Label("Extreme scaling may affect performance and cover very large areas.");
+            GUILayout.Space(8f);
+            GUILayout.Label("ENEMIES");
+            DrawEnemyDensity();
+            GUILayout.EndScrollView();
+        }
+
+        private void DrawEnemyDensity()
+        {
+            int value = Mathf.Clamp(EnemyDensityMultiplier.Value, 1, 15);
+            int next = Mathf.Clamp(Mathf.RoundToInt(GUILayout.HorizontalSlider(value, 1f, 15f)), 1, 15);
+            if (next != value)
+            {
+                EnemyDensityMultiplier.Value = next;
+                Config.Save();
+                Logger.LogInfo("Enemy Density: " + next + "x");
+            }
+            GUILayout.Label("Enemy Density: " + value + "x");
+            if (value > 3) GUILayout.Label("High enemy density may reduce performance.");
+            if (value > 8) GUILayout.Label("Very high enemy density can heavily affect AI/pathfinding performance.");
+            if (value > 12) GUILayout.Label("Extreme enemy density may cause severe performance loss.");
         }
 
         private void DrawProjectileCount()
@@ -777,6 +807,7 @@ namespace HaishanTweaks
             if (menuVisible) SetMenuVisible(false);
             FogController.RestoreNative();
             BlurController.RestoreNative();
+            ZoomGeometryCleanup.RestoreNative();
             if (harmony != null) harmony.UnpatchSelf();
         }
 
@@ -1458,6 +1489,7 @@ namespace HaishanTweaks
         {
             FogController.Update();
             BlurController.Update(__instance);
+            ZoomGeometryCleanup.Update(__instance);
         }
     }
 
@@ -1575,6 +1607,150 @@ namespace HaishanTweaks
             float targetDistance = baselineDistance * Plugin.RuntimeCameraDistanceMultiplier;
             Vector3 desired = point.transform.position + nativeVector / nativeDistance * targetDistance;
             camera.m_Camera.transform.position = desired;
+        }
+    }
+
+    internal static class ZoomGeometryCleanup
+    {
+        private static readonly System.Reflection.FieldInfo PointField = AccessTools.Field(typeof(CameraManager), "m_GameObject");
+        private sealed class MaterialState
+        {
+            internal float Dither;
+            internal int SceneHandle;
+        }
+        private sealed class RendererState
+        {
+            internal bool Enabled;
+            internal UnityEngine.Rendering.ShadowCastingMode ShadowCastingMode;
+        }
+
+        private static readonly RaycastHit[] Hits = new RaycastHit[128];
+        private static readonly Dictionary<Material, MaterialState> Modified = new Dictionary<Material, MaterialState>();
+        private static readonly Dictionary<Renderer, RendererState> ModifiedRenderers = new Dictionary<Renderer, RendererState>();
+        private static readonly HashSet<int> Reported = new HashSet<int>();
+        private static int sceneHandle = int.MinValue;
+
+        internal static void Update(CameraManager camera)
+        {
+            int currentScene = SceneManager.GetActiveScene().handle;
+            if (currentScene != sceneHandle)
+            {
+                RestoreNative();
+                sceneHandle = currentScene;
+                Reported.Clear();
+            }
+            if (camera == null || camera.m_Camera == null || PointField == null || Plugin.RuntimeCameraDistanceMultiplier <= 1.25f || !CameraDistanceScope.IsNormalFollow(camera))
+            {
+                RestoreNative();
+                return;
+            }
+            GameObject point = PointField.GetValue(camera) as GameObject;
+            if (point == null) { RestoreNative(); return; }
+            Vector3 origin = camera.m_Camera.transform.position;
+            Vector3 target = point.transform.position + new Vector3(0f, 0.1f, 0f);
+            Vector3 direction = target - origin;
+            float distance = direction.magnitude;
+            if (distance <= 0.001f) { RestoreNative(); return; }
+            HashSet<Material> visible = new HashSet<Material>();
+            HashSet<Renderer> visibleRenderers = new HashSet<Renderer>();
+            int count = Physics.BoxCastNonAlloc(origin, new Vector3(0.1f, 0.1f, 0.1f), direction / distance, Hits, Quaternion.identity, distance);
+            for (int i = 0; i < count; i++)
+            {
+                Collider collider = Hits[i].collider;
+                if (collider == null || !collider.CompareTag("Scene")) continue;
+                Renderer[] renderers = collider.gameObject.GetComponentsInChildren<Renderer>(true);
+                foreach (Renderer renderer in renderers)
+                {
+                    if (renderer == null) continue;
+                    Material[] materials = renderer.materials;
+                    bool supportsDither = materials.Length > 0;
+                    foreach (Material material in materials)
+                    {
+                        if (material == null || material.shader == null || material.shader.name == "Standard" || !material.HasProperty("_Dither")) supportsDither = false;
+                    }
+                    if (supportsDither)
+                    {
+                        foreach (Material material in materials)
+                        {
+                            visible.Add(material);
+                            MaterialState state;
+                            if (!Modified.TryGetValue(material, out state))
+                            {
+                                state = new MaterialState { Dither = material.GetFloat("_Dither"), SceneHandle = currentScene };
+                                Modified[material] = state;
+                            }
+                            material.SetFloat("_Dither", Mathf.Min(material.GetFloat("_Dither"), 0.3f));
+                            LogCandidate(renderer, material, origin, point, "Dither", currentScene);
+                        }
+                    }
+                    else
+                    {
+                        visibleRenderers.Add(renderer);
+                        RendererState state;
+                        if (!ModifiedRenderers.TryGetValue(renderer, out state))
+                        {
+                            state = new RendererState { Enabled = renderer.enabled, ShadowCastingMode = renderer.shadowCastingMode };
+                            ModifiedRenderers[renderer] = state;
+                        }
+                        try { renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.ShadowsOnly; LogCandidate(renderer, materials.Length > 0 ? materials[0] : null, origin, point, "ShadowsOnly", currentScene); }
+                        catch (Exception) { renderer.enabled = false; LogCandidate(renderer, materials.Length > 0 ? materials[0] : null, origin, point, "Disabled", currentScene); }
+                    }
+                }
+            }
+            foreach (Material material in Modified.Keys.ToList())
+            {
+                if (material == null || !visible.Contains(material))
+                {
+                    if (material != null) material.SetFloat("_Dither", Modified[material].Dither);
+                    Modified.Remove(material);
+                }
+            }
+            foreach (Renderer renderer in ModifiedRenderers.Keys.ToList())
+            {
+                if (renderer == null || !visibleRenderers.Contains(renderer))
+                {
+                    if (renderer != null)
+                    {
+                        renderer.enabled = ModifiedRenderers[renderer].Enabled;
+                        renderer.shadowCastingMode = ModifiedRenderers[renderer].ShadowCastingMode;
+                    }
+                    ModifiedRenderers.Remove(renderer);
+                }
+            }
+        }
+
+        internal static void RestoreNative()
+        {
+            foreach (KeyValuePair<Material, MaterialState> item in Modified.ToList())
+                if (item.Key != null) item.Key.SetFloat("_Dither", item.Value.Dither);
+            Modified.Clear();
+            foreach (KeyValuePair<Renderer, RendererState> item in ModifiedRenderers.ToList())
+            {
+                if (item.Key != null)
+                {
+                    item.Key.enabled = item.Value.Enabled;
+                    item.Key.shadowCastingMode = item.Value.ShadowCastingMode;
+                }
+            }
+            ModifiedRenderers.Clear();
+            Reported.Clear();
+        }
+
+        private static void LogCandidate(Renderer renderer, Material material, Vector3 origin, GameObject point, string action, int currentScene)
+        {
+            if (!Plugin.CameraGeometryDiagnostics.Value || renderer == null || !Reported.Add(renderer.GetInstanceID())) return;
+            string shader = material == null || material.shader == null ? "(none)" : material.shader.name;
+            bool supportsDither = material != null && material.shader != null && material.shader.name != "Standard" && material.HasProperty("_Dither");
+            Plugin.ModLogger.LogInfo("Zoom obstruction: Scene=" + SceneManager.GetActiveScene().name + " Path=" + GetPath(renderer.transform) + " Renderer=" + renderer.GetType().Name + " Layer=" + renderer.gameObject.layer + " Tag=" + renderer.gameObject.tag + " Shader=" + shader + " SupportsDither=" + supportsDither + " HitByExtendedCast=True Action=" + action + " Bounds=" + renderer.bounds + " DistanceToCamera=" + Vector3.Distance(origin, renderer.bounds.center).ToString("F2") + " DistanceToPlayer=" + Vector3.Distance(point.transform.position, renderer.bounds.center).ToString("F2"));
+        }
+
+        private static string GetPath(Transform current)
+        {
+            if (current == null) return "null";
+            List<string> names = new List<string>();
+            while (current != null) { names.Add(current.name); current = current.parent; }
+            names.Reverse();
+            return string.Join("/", names.ToArray());
         }
     }
 
@@ -2412,6 +2588,84 @@ namespace HaishanTweaks
         {
             if (!Plugin.AbilityScalingDiagnostics.Value || __instance == null || !Plugin.IsPlayer(__instance.m_Owner) || __result == null) return;
             Plugin.ModLogger.LogInfo("Ability scaling: Skill=" + (__result.m_Skill == null ? "(unknown)" : __result.m_Skill.Name) + " Owner=Player Mode=ExplicitTarget SizeMultiplier=" + Plugin.RuntimeAbilitySizeMultiplier.ToString("F2") + " RangeMultiplier=" + Plugin.RuntimeAbilityRangeMultiplier.ToString("F2") + " NativeAnchor=" + startpos + " ScaledAnchor=" + __result.m_StartPos + " AnchorDelta=" + (__result.m_StartPos - startpos) + " NativeTarget=" + targetpos + " ResolvedTarget=" + __result.m_EndPos + " VisualPath=BulletEffect.Initialized VisualScaled=" + Plugin.ScaleAbilityVisuals.Value);
+        }
+    }
+
+    [HarmonyPatch(typeof(MapMain), nameof(MapMain.CreaMonster))]
+    internal static class EnemyDensityPatch
+    {
+        private static readonly System.Reflection.FieldInfo RulesField = AccessTools.Field(typeof(MapMain), "m_MonsterBrushRules");
+        private static readonly System.Reflection.FieldInfo CurrentRoomField = AccessTools.Field(typeof(MapMain), "_currRoom");
+        private static readonly System.Reflection.FieldInfo WaveField = AccessTools.Field(typeof(MapMain), "creaMonsterIndex");
+
+        private static void Postfix(MapMain __instance)
+        {
+            int multiplier = Mathf.Clamp(Plugin.EnemyDensityMultiplier.Value, 1, 15);
+            if (multiplier <= 1 || __instance == null || RulesField == null) return;
+            List<MonsterBrushRuleData> rules = RulesField.GetValue(__instance) as List<MonsterBrushRuleData>;
+            RoomConfig room = CurrentRoomField == null ? null : CurrentRoomField.GetValue(__instance) as RoomConfig;
+            if (rules == null || room == null || room.roomType == RoomType.Boss || room.roomType == RoomType.Elite || room.roomType == RoomType.Special || room.roomType == RoomType.Shop || __instance.GetIsPlotPlaying()) return;
+
+            List<MonsterBrushRuleData> nativeRules = new List<MonsterBrushRuleData>(rules);
+            int extrasRequested = 0;
+            int extrasAdded = 0;
+            foreach (MonsterBrushRuleData rule in nativeRules)
+            {
+                string reason;
+                if (!IsRegularRule(rule, out reason))
+                {
+                    if (Plugin.EnemyDiagnostics.Value && (reason == "BossExcluded" || reason == "EliteExcluded"))
+                        Plugin.ModLogger.LogInfo("Enemy density skipped: Enemy=" + RuleName(rule) + " Category=" + reason.Replace("Excluded", string.Empty) + " Reason=" + reason);
+                    continue;
+                }
+                extrasRequested += multiplier - 1;
+                for (int i = 1; i < multiplier; i++)
+                {
+                    rules.Add(rule);
+                    extrasAdded++;
+                }
+            }
+            if (Plugin.EnemyDiagnostics.Value && extrasRequested > 0)
+            {
+                string wave = WaveField == null ? "n/a" : WaveField.GetValue(__instance).ToString();
+                Plugin.ModLogger.LogInfo("Enemy density: Enemy=(native rules) Category=Regular NativeSpawn=(native rule dispatch) Multiplier=" + multiplier + " ExtrasRequested=" + extrasRequested + " ExtrasSpawned=" + extrasAdded + " Encounter=" + __instance.m_RoomName + " Wave=" + wave + " RegisteredWithEncounter=True");
+            }
+        }
+
+        private static bool IsRegularRule(MonsterBrushRuleData rule, out string reason)
+        {
+            reason = "UnknownPool";
+            if (rule == null || rule.MonsterPools == null) return false;
+            if (rule.MonsterPools.IsBoos == 1) { reason = "BossExcluded"; return false; }
+            MonsterPools pools = rule.MonsterPools.GetMonsterPools(CtrlManager.Instance == null ? 0 : CtrlManager.Instance.M_leveDifficulty);
+            if (pools == null || string.IsNullOrEmpty(pools.MonsterPool) || PoolManager.Instance == null || NpcManager.Instance == null) return false;
+            PoolData data = PoolManager.Instance.GetPoolData(pools.MonsterPool);
+            if (data == null || data.Randoms == null || data.Randoms.Items == null || data.Randoms.Items.Count == 0) return false;
+            foreach (PoolItem item in data.Randoms.Items)
+            {
+                NpcUnit unit = item == null ? null : NpcManager.Instance.GetUnitData(item.Name);
+                if (unit == null) return false;
+                if (unit.Rank == UnitRank.Boss) { reason = "BossExcluded"; return false; }
+                if (unit.Rank == UnitRank.Elite) { reason = "EliteExcluded"; return false; }
+                if (unit.Rank != UnitRank.None) return false;
+            }
+            reason = string.Empty;
+            return true;
+        }
+
+        private static string RuleName(MonsterBrushRuleData rule)
+        {
+            return rule == null || rule.MonsterPools == null ? "(unknown)" : rule.MonsterPools.MonsterPool;
+        }
+    }
+
+    [HarmonyPatch(typeof(FightBody), nameof(FightBody.SetSkillBox), new Type[] { typeof(string), typeof(int), typeof(int) })]
+    internal static class PlayerProjectileCoverageDiagnostics
+    {
+        private static void Postfix(FightBody __instance, string skillname, int index)
+        {
+            if (!Plugin.AbilityScalingDiagnostics.Value || __instance == null || !Plugin.IsPlayer(__instance.m_Owner)) return;
+            Plugin.ModLogger.LogInfo("Projectile coverage: Skill=" + skillname + " ExecutionPath=SetSkillBox Classification=PlayerAttachedHitbox Supported=False Reason=NotProjectile Index=" + index);
         }
     }
 }
